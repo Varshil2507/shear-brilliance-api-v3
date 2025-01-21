@@ -1,0 +1,32 @@
+{
+  "development": {
+  "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
+  "dialect": "postgres",
+  "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  },
+  "test": {
+    "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  },
+  "production": {
+  "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
+  "dialect": "postgres",
+  "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  }
+}
