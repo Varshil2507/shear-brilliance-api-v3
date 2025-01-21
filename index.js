@@ -48,7 +48,7 @@ syncDatabase();
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api/v2/api-docs', express.static(path.join(__dirname, 'public/swagger')));
+app.use('/api/v3/api-docs', express.static(path.join(__dirname, 'public/swagger')));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -88,7 +88,7 @@ const swaggerOptions = {
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use('/api/v2/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use('/api/v3/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 
 
