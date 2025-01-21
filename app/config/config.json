@@ -1,7 +1,7 @@
 {
   "development": {
-  "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
-  "dialect": "postgres",
+  "url": "postgresql://neondb_owner:npg_KtviU2SlC0IE@ep-silent-butterfly-a68l2zqa.us-west-2.aws.neon.tech/neondb?sslmode=require",
+  "dialect": "postgresql",
   "dialectOptions": {
       "ssl": {
         "require": true,
@@ -10,8 +10,8 @@
     }
   },
   "test": {
-    "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
-    "dialect": "postgres",
+    "url": "postgresql://neondb_owner:npg_KtviU2SlC0IE@ep-silent-butterfly-a68l2zqa.us-west-2.aws.neon.tech/neondb?sslmode=require",
+    "dialect": "postgresql",
     "dialectOptions": {
       "ssl": {
         "require": true,
@@ -20,8 +20,8 @@
     }
   },
   "production": {
-  "url": "postgres://neondb_owner:Bf4sLOUR9xlS@ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech:5432/neondb?sslmode=require",
-  "dialect": "postgres",
+  "url": "postgresql://neondb_owner:npg_KtviU2SlC0IE@ep-silent-butterfly-a68l2zqa.us-west-2.aws.neon.tech/neondb?sslmode=require",
+  "dialect": "postgresql",
   "dialectOptions": {
       "ssl": {
         "require": true,

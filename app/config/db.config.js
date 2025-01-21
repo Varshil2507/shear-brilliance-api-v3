@@ -1,11 +1,11 @@
 
 const pg = require('pg');
 module.exports = {
-    HOST: "ep-autumn-sunset-a59jfsoj-pooler.us-east-2.aws.neon.tech",
+    HOST: "ep-silent-butterfly-a68l2zqa.us-west-2.aws.neon.tech",
     USER: "neondb_owner",
-    PASSWORD: "Bf4sLOUR9xlS",
+    PASSWORD: "npg_KtviU2SlC0IE",
     DB: "neondb",
-    dialect: "postgres",
+    dialect: "postgresql",
     dialectModule:pg,
     pool: {
       max: 5,
