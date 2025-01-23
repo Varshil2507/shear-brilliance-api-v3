@@ -330,10 +330,12 @@ exports.transferAppointment = async (req, res) => {
            appointment_date: appointment.appointment_date,
            appointment_start_time: appointment.appointment_start_time,
            location: salonName,
-           // cancel_url: `https://your-website.com/appointments/cancel/${appointmentId}`
+           currentYear: new Date().getFullYear(),
+           reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
+           email_subject: "Appointment Transferred Successfully",
          };
      
-         await sendEmail(user.email,"Your Appointment Has Been Transferred",INVITE_TRANSFER_APPOINTMENT_TEMPLATE_ID, emailData);
+         await sendEmail(user.email,"Your Appointment has been Transferred",INVITE_TRANSFER_APPOINTMENT_TEMPLATE_ID, emailData);
 
     return sendResponse(
       res,

@@ -18,11 +18,11 @@ module.exports = (sequelize, Sequelize) => {
             allowNull: false,
         },
         min_price: { // Newly added field
-            type: Sequelize.FLOAT,
+            type: Sequelize.DECIMAL(10, 2), // 10 digits total, 2 after the decimal point
             allowNull: false,
         },
         max_price: { // Newly added field
-            type: Sequelize.FLOAT,
+            type: Sequelize.DECIMAL(10, 2), // 10 digits total, 2 after the decimal point
             allowNull: false,
         },
         isActive: {

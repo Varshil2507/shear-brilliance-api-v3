@@ -482,6 +482,8 @@ exports.updateLeaveStatus = async (req, res) => {
       response_reason: leave.response_reason || 'N/A',
       location:salonName, // Replace with the salon's name if available
       salon_manager_name:user.username,
+      currentYear: new Date().getFullYear(),
+      email_subject:  'Leave Request Status',
     };
 
     await sendEmail(email,'Leave Request Status', INVITE_APPROVED_LEAVE_TEMPLATE_ID, emailData);

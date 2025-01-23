@@ -288,7 +288,8 @@ exports.create = async (req, res) => {
         const { ServiceId, price } = service;
 
         // Validate ServiceId and price
-        if (!ServiceId || price === undefined || isNaN(price) || price < 0) {
+        const roundedPrice = price !== undefined ? parseFloat(price).toFixed(2) : '0.00';
+        if (!ServiceId || isNaN(roundedPrice) || roundedPrice < 0) {
           return sendResponse(res, false, `Invalid service price data for ServiceId: ${ServiceId}`, null, 400);
         }
 
@@ -307,7 +308,7 @@ exports.create = async (req, res) => {
           BarberId: barber.id,
           ServiceId,
           SalonId: barber.SalonId,
-          price: parseFloat(price),
+          price: parseFloat(roundedPrice),
         });
       }
 
@@ -343,7 +344,8 @@ exports.create = async (req, res) => {
         barber_name: `${firstname} ${lastname}`,
         email: email,
         password: password,
-        company_name: 'Shear Brilliance'
+        company_name: 'Shear Brilliance',
+        currentYear: new Date().getFullYear()
       };
       
       await transaction.commit();
@@ -718,20 +720,15 @@ exports.update = async (req, res) => {
 
     if (servicesWithPrices) {
       let parsedServicesWithPrices;
-    
+
       try {
-        if (typeof servicesWithPrices === 'string') {
-          if (!servicesWithPrices.trim().startsWith('[')) {
-            servicesWithPrices = `[${servicesWithPrices}]`;
-          }
-          servicesWithPrices = servicesWithPrices.replace(/'/g, '"');
-          parsedServicesWithPrices = JSON.parse(servicesWithPrices);
-        } else {
-          parsedServicesWithPrices = servicesWithPrices;
-        }
+        parsedServicesWithPrices = parseServicesWithPrices(servicesWithPrices);
       } catch (error) {
-        console.error('Error parsing servicesWithPrices:', error.message);
         return sendResponse(res, false, 'Invalid format for servicesWithPrices. Must be a valid JSON array.', null, 400);
+      }
+
+      if (!Array.isArray(parsedServicesWithPrices) || parsedServicesWithPrices.length === 0) {
+        return sendResponse(res, false, 'servicesWithPrices must be a non-empty array.', null, 400);
       }
     
       if (!Array.isArray(parsedServicesWithPrices) || parsedServicesWithPrices.length === 0) {
@@ -741,7 +738,8 @@ exports.update = async (req, res) => {
       for (const service of parsedServicesWithPrices) {
         const { ServiceId, price } = service;
     
-        if (!ServiceId || price === undefined || isNaN(price) || price < 0) {
+        const roundedPrice = price !== undefined ? parseFloat(price).toFixed(2) : '0.00';
+        if (!ServiceId || isNaN(roundedPrice) || roundedPrice < 0) {
           return sendResponse(res, false, `Invalid service price data for ServiceId: ${ServiceId}`, null, 400);
         }
     
@@ -761,7 +759,7 @@ exports.update = async (req, res) => {
         if (barberService) {
           // If service exists for this barber, update the price
           await barberService.update({
-            price: parseFloat(price),
+            price: parseFloat(roundedPrice),
           });
         } else {
           // If service doesn't exist for this barber, create a new entry
@@ -769,7 +767,7 @@ exports.update = async (req, res) => {
             BarberId: barber.id,
             ServiceId,
             SalonId: barber.SalonId,
-            price: parseFloat(price),
+            price: parseFloat(roundedPrice),
           });
         }
       }
@@ -1043,6 +1041,9 @@ exports.updateCategory = async (req, res) => {
                         appointment_date: appointment.appointment_date,
                         appointment_start_time: `${appointment.appointment_start_time}`,
                         location: salonName,
+                        currentYear: new Date().getFullYear(),
+                        reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
+                        email_subject: "Appointment Transferred Successfully",
                     };
         
                   await sendEmail(user.email, "Appointment Cancellation", INVITE_BARBER_CHANGE_CATEGORY_TEMPLATE_ID, emailData);

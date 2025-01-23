@@ -119,6 +119,7 @@ exports.create = async (req, res) => {
     const customerEmailData = {
       email: req.body.email,
       company_name: 'Shear_Brilliance',
+      currentYear: new Date().getFullYear()
     };
 
     // Send confirmation email to the customer

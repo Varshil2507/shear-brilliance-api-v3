@@ -5,24 +5,62 @@ const Service = db.Service;
 const sendResponse = require('../helpers/responseHelper'); // Make sure this path is correct
 const { Op } = require('sequelize'); // Import Op for Sequelize operations
 
-// Create a new service
+
+function formatPrice(value) {
+    if (value === null || value === undefined) return null;
+
+    // Convert the value to a float and fix it to 2 decimal places
+    const numValue = parseFloat(value);
+
+    // Check if the value is a valid number
+    if (isNaN(numValue)) {
+        throw new Error('Invalid price format');
+    }
+
+    // Return the value formatted to 2 decimal places
+    return parseFloat(numValue.toFixed(2));
+}
+
+
 exports.create = async (req, res) => {
     try {
-        const { name, description,default_service_time, min_price, max_price, isActive } = req.body;
+        const { name, description, default_service_time, min_price, max_price, isActive } = req.body;
 
+        // Validation checks...
+        if (!name) {
+            return sendResponse(res, false, 'Name is required', null, 400);
+        }
 
-        // Check if a service with the same name already exists
+        // Check for existing service...
         const existingService = await Service.findOne({ where: { name } });
         if (existingService) {
             return sendResponse(res, false, 'Service name is already taken', null, 400);
         }
 
+
+        if (min_price !== undefined && (isNaN(min_price) || min_price < 0)) {
+            return sendResponse(res, false, 'Invalid min_price value', null, 400);
+        }
+        
+        if (max_price !== undefined && (isNaN(max_price) || max_price < 0)) {
+            return sendResponse(res, false, 'Invalid max_price value', null, 400);
+        }
+        
+        if (min_price !== undefined && max_price !== undefined && min_price > max_price) {
+            return sendResponse(res, false, 'min_price cannot be greater than max_price', null, 400);
+        }
+
+        // Format prices before saving
+        const formattedMinPrice = formatPrice(min_price);
+        const formattedMaxPrice = formatPrice(max_price);
+
+        // Create the service
         const service = await Service.create({
             name,
             description,
             default_service_time,
-            min_price,
-            max_price,
+            min_price: formattedMinPrice,
+            max_price: formattedMaxPrice,
             isActive
         });
 
@@ -32,27 +70,78 @@ exports.create = async (req, res) => {
     }
 };
 
-// Get all services
+// Update Service
+exports.update = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, default_service_time, min_price, max_price, isActive } = req.body;
+
+        // Find the service by ID
+        const service = await Service.findByPk(id);
+        if (!service) {
+            return sendResponse(res, false, 'Service not found', null, 404);
+        }
+
+        if (min_price !== undefined && (isNaN(min_price) || min_price < 0)) {
+            return sendResponse(res, false, 'Invalid min_price value', null, 400);
+        }
+        
+        if (max_price !== undefined && (isNaN(max_price) || max_price < 0)) {
+            return sendResponse(res, false, 'Invalid max_price value', null, 400);
+        }
+        
+        if (min_price !== undefined && max_price !== undefined && min_price > max_price) {
+            return sendResponse(res, false, 'min_price cannot be greater than max_price', null, 400);
+        }
+
+        // Format prices before updating
+        const formattedMinPrice = min_price !== undefined ? formatPrice(min_price) : null;
+        const formattedMaxPrice = max_price !== undefined ? formatPrice(max_price) : null;
+
+        // Update service fields
+        await service.update({
+            name: name || service.name,
+            description: description || service.description,
+            default_service_time: default_service_time || service.default_service_time,
+            min_price: formattedMinPrice !== null ? formattedMinPrice : service.min_price,
+            max_price: formattedMaxPrice !== null ? formattedMaxPrice : service.max_price,
+            isActive: isActive !== undefined ? isActive : service.isActive,
+        });
+
+        sendResponse(res, true, 'Service updated successfully', service, 200);
+    } catch (error) {
+        sendResponse(res, false, error.message, null, 500);
+    }
+};
+
+
 exports.findAll = async (req, res) => {
     try {
-        const { search } = req.query; // Get the search query from the request
+        const { search } = req.query;
 
-       // Define a filter condition based on the search query
-       const whereCondition = search
-       ? {
-             name: {
-                 [Op.iLike]: `%${search.split(' ').map(word => word.trim()).join('%')}%`, // Ensure each word is wrapped by '%'
-             },
-         }
-       : {}; 
-       // If no search term, return all services
+        // Build the search condition
+        const whereCondition = search
+            ? {
+                name: {
+                    [Op.iLike]: `%${search.split(' ').map(word => word.trim()).join('%')}%`,
+                },
+            }
+            : {};
 
+        // Fetch all services with the search condition
         const services = await Service.findAll({
             where: whereCondition,
             order: [['createdAt', 'ASC']],
         });
 
-        sendResponse(res, true, 'Services retrieved successfully', services, 200);
+        // Format the response data for all services
+        const formattedServices = services.map(service => ({
+            ...service.toJSON(),
+            min_price: service.min_price ? parseFloat(service.min_price).toFixed(2) : null,
+            max_price: service.max_price ? parseFloat(service.max_price).toFixed(2) : null,
+        }));
+
+        sendResponse(res, true, 'Services retrieved successfully', formattedServices, 200);
     } catch (error) {
         sendResponse(res, false, error.message, null, 500);
     }
@@ -61,42 +150,26 @@ exports.findAll = async (req, res) => {
 // Get a service by ID
 exports.findOne = async (req, res) => {
     try {
+        // Find the service by ID
         const service = await Service.findByPk(req.params.id);
 
         if (!service) {
             return sendResponse(res, false, 'Service not found', null, 404);
         }
 
-        sendResponse(res, true, 'Service retrieved successfully', service, 200);
+        // Format the response data
+        const responseData = {
+            ...service.toJSON(),
+            min_price: service.min_price ? parseFloat(service.min_price).toFixed(2) : null,
+            max_price: service.max_price ? parseFloat(service.max_price).toFixed(2) : null,
+        };
+
+        sendResponse(res, true, 'Service retrieved successfully', responseData, 200);
     } catch (error) {
         sendResponse(res, false, error.message, null, 500);
     }
 };
 
-// Update a service by ID
-exports.update = async (req, res) => {
-    try {
-        const { name, description,default_service_time, min_price , max_price, isActive } = req.body;
-        const service = await Service.findByPk(req.params.id);
-
-        if (!service) {
-            return sendResponse(res, false, 'Service not found', null, 404);
-        }
-
-        service.name = name || service.name;
-        service.description=description || service.description;
-        service.default_service_time = default_service_time || service.default_service_time;
-        service.min_price = min_price || service.min_price;
-        service.max_price = max_price || service.max_price;
-        service.isActive = isActive !== undefined ? isActive : service.isActive;
-
-        await service.save();
-
-        sendResponse(res, true, 'Service updated successfully', service, 200);
-    } catch (error) {
-        sendResponse(res, false, error.message, null, 500);
-    }
-};
 
 exports.updateIsActive = async (req, res) => {
     try {
@@ -128,6 +201,3 @@ exports.updateIsActive = async (req, res) => {
       return sendResponse(res, false, 'An error occurred while updating the service.', null, 500);
     }
   };
-  
-
-

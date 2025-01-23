@@ -34,8 +34,8 @@ module.exports = (sequelize, Sequelize) => {
             onDelete: 'CASCADE'
         },
         price: {
-            type: Sequelize.FLOAT,
-            allowNull: false
+            type: Sequelize.DECIMAL(10, 2), // 10 digits total, 2 after the decimal point
+            allowNull: false,
         }
     });
 

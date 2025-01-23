@@ -263,7 +263,8 @@ exports.create = async (req, res) => {
             const sendSalonEmail = {
                 email: email,
                 password: password,
-                company_name: 'Shear Brilliance'   
+                company_name: 'Shear Brilliance',
+                currentYear: new Date().getFullYear() 
             };
 
             // Send confirmation email (you can replace `sendEmail` with actual email sending logic)

@@ -277,7 +277,7 @@ async function sendAppointmentNotifications(appointment, name, mobile_number, us
 
 exports.create = async (req, res) => {
     try {
-      let { user_id, salon_id, barber_id, number_of_people, name, mobile_number, service_ids, slot_id  } = req.body;
+      let { user_id, salon_id, barber_id, number_of_people, name, mobile_number, service_ids, slot_id } = req.body;
       user_id = req.user ? req.user.id : user_id;
   
       // Get barber details including category
@@ -515,17 +515,43 @@ exports.create = async (req, res) => {
     }
     const email = user.email; // Fetch the user's email
     
-      // Prepare dynamic data for email
-      const emailData = {
-        customer_name:appointment.name,
-        barber_name: barber.name,
-        appointment_date: appointment.appointment_date,
-        appointment_start_time: `${appointment.appointment_start_time}`,
-        location: salonName,
-      };
+    let emailData;
+    if (barber.category === BarberCategoryENUM.ForWalkIn) {
+        emailData = {
+            is_walk_in: true,
+            customer_name: appointment.name,
+            barber_name: barber.name,
+            appointment_date: new Date().toLocaleString('en-US', { 
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }),
+            location: salonName,
+            email_subject: "Walk-in Appointment Confirmation",
+            cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
+        };
+    } else {
+        emailData = {
+            is_walk_in: false,
+            customer_name: appointment.name,
+            barber_name: barber.name,
+            appointment_date: new Date(appointment.appointment_date).toLocaleDateString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }),
+            appointment_start_time: appointment.appointment_start_time,
+            appointment_end_time: appointment.appointment_end_time,
+            location: salonName,
+            email_subject: "Appointment Confirmation",
+            cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
+        };
+    }
   
       // Send confirmation email
-      await sendEmail(email,"Your Appointment Book Successfully",INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID,emailData );
+      await sendEmail(email,"Your Appointment Book Successfully",INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID, emailData );
 
     return sendResponse(res, true, 'Appointment created successfully', appointmentWithServices, 201);
     } catch (error) {
@@ -903,9 +929,13 @@ exports.cancel = async (req, res) => {
                 appointment_date: appointment.appointment_date,
                 appointment_start_time: `${appointment.appointment_start_time}`,
                 location: salonName,
+                currentYear: new Date().getFullYear(),
+                reschedule_url: `${process.env.FRONTEND_URL}/select_salon`
             };
+            console.log("Email data:", emailData);
 
             await sendEmail(user.email, "Appointment Cancellation", INVITE_CANCEL_APPOINTMENT_TEMPLATE_ID, emailData);
+            console.log("Email sent successfully.", user.email);
         }
 
         return sendResponse(res, true, "Appointment canceled successfully", null, 200);
@@ -1908,7 +1938,9 @@ exports.appointmentByBarber = async (req, res) => {
                 email,
                 password: plainPassword,
                 company_name: 'Shear Brilliance',
-                name: `${firstname} ${lastname}`
+                name: `${firstname} ${lastname}`,
+                currentYear: new Date().getFullYear(),
+                email_subject:  'Added as a Customer',
             };
 
             await sendEmail(email, "Added as a Customer", INVITE_CUSTOMER_WITH_PASSWORD_TEMPLATE_ID, customerData);
@@ -1947,10 +1979,15 @@ exports.appointmentByBarber = async (req, res) => {
 
         // Handle different booking types
         if (barber.category === BarberCategoryENUM.ForWalkIn) {
-            const barberSession = await BarberSession.findOne({ where: { BarberId: barber_id } });
-            if (!barberSession) {
-                return sendResponse(res, false, 'Barber is not available for appointments', null, 400);
-            }
+
+            let barberSession = await BarberSession.findOne({ 
+                where: { 
+                    BarberId: barber_id,
+                    session_date: {
+                        [Op.between]: [todayStart, todayEnd]
+                    }
+                } 
+            });
 
             if (!barberSession) {
                 return sendResponse(res, false, 'Barber is not available for appointments today', null, 400);
@@ -1968,11 +2005,6 @@ exports.appointmentByBarber = async (req, res) => {
                 return sendResponse(res, false, 'Not enough remaining time for this appointment', null, 400);
             }
 
-
-            if (remainingTime < totalServiceTime) {
-                return sendResponse(res, false, 'Not enough remaining time for this appointment', null, 400);
-            }
-
             const { totalWaitTime, numberOfUsersInQueue } = await getEstimatedWaitTimeForBarber(barber_id);
 
             appointmentData = {
@@ -1983,10 +2015,11 @@ exports.appointmentByBarber = async (req, res) => {
                 check_in_time: new Date(),
             };
 
-            // Update barber session remaining time
-            await barberSession.update({
-                remaining_time: remainingTime - totalServiceTime
+             // Update barber session remaining time
+            await barberSession.update({ 
+                remaining_time: remainingTime - totalServiceTime 
             });
+            console.log(`Updated remaining time for barber session: ${remainingTime - totalServiceTime}`);
 
         } else {
             // Scheduled appointment logic
@@ -2109,14 +2142,50 @@ exports.appointmentByBarber = async (req, res) => {
         const salonName = salon ? salon.name : 'the selected salon';
        // Add this before sending the confirmation email
        
-         // Prepare dynamic data for email
-         const emailData = {
-           customer_name:appointment.name,
-           barber_name: barber.name,
-           appointment_date: appointment.appointment_date,
-           appointment_start_time: `${appointment.appointment_start_time}`,
-           location: salonName,
-         };
+       let emailData;
+       if (barber.category === BarberCategoryENUM.ForWalkIn) {
+           emailData = {
+               is_walk_in: true,
+               customer_name: appointment.name,
+               barber_name: barber.name,
+               appointment_date: new Date().toLocaleString('en-US', { 
+                   weekday: 'short',
+                   year: 'numeric',
+                   month: 'short',
+                   day: 'numeric'
+               }),
+               location: salonName,
+               email_subject: "Walk-in Appointment Confirmation",
+               cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
+           };
+       } else {
+           emailData = {
+               is_walk_in: false,
+               customer_name: appointment.name,
+               barber_name: barber.name,
+               appointment_date: new Date(appointment.appointment_date).toLocaleDateString('en-US', {
+                   weekday: 'short',
+                   year: 'numeric',
+                   month: 'short',
+                   day: 'numeric'
+               }),
+               appointment_start_time: appointment.appointment_start_time,
+               appointment_end_time: appointment.appointment_end_time,
+               location: salonName,
+               email_subject: "Appointment Confirmation",
+               cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
+           };
+       }
+       
+       console.log('Email data:', emailData);
+
+       // Send confirmation email
+       await sendEmail(
+           email,
+           emailData.email_subject,
+           INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID,
+           emailData
+       );
      
          // Send confirmation email
          await sendEmail(email,"Your Appointment Book Successfully",INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID,emailData );
