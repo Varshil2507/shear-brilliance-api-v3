@@ -20,6 +20,7 @@ const { sendEmail } = require("../services/emailService");
 const { INVITE_CUSTOMER_TEMPLATE_ID } = require("../config/sendGridConfig");
 const { role} = require('../config/roles.config');
 const AWS = require('aws-sdk');
+const validateInput = require('../helpers/validatorHelper');
 
 
 // Configure S3 for DigitalOcean Spaces
@@ -34,6 +35,58 @@ const s3 = new AWS.S3({
 
 exports.create = async (req, res) => {
   try {
+
+    const { firstname, lastname, email, address, mobile_number, password } = req.body;
+
+    // Validate the input fields
+    const requiredFields = [
+      { name: 'firstname', value: firstname },
+      { name: 'lastname', value: lastname },
+      { name: 'address', value: address },
+      { name: 'email', value: email },
+      { name: 'mobile_number', value: mobile_number },
+      { name: 'password', value: password }
+    ];
+
+     // Validate required fields (skip password if not being updated)
+      for (const field of requiredFields) {
+        if (field.value !== undefined) {
+            // Use specific validation for address
+            if (field.name === 'address') {
+                if (!validateInput(field.value, 'address')) {
+                    return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                }
+            } else {
+                // General whitespace validation for other fields
+                if (!validateInput(field.value, 'whitespace')) {
+                    return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                }
+            }
+        }
+      }
+
+    if(!validateInput(firstname, 'nameRegex')) {
+      return sendResponse(res, false, 'Firstname must contain only letters', null, 400);
+    }
+
+    if(!validateInput(lastname, 'nameRegex')) {
+      return sendResponse(res, false, 'Lastname must contain only letters', null, 400);
+    }
+
+    if (!validateInput(email, 'email')) {
+      return sendResponse(res, false, 'Invalid email', 'Please provide a valid email address', 400);
+    }
+
+    if (!validateInput(password, 'password')) {
+      return sendResponse(res, false, 'Invalid password', 
+        'Password must be at least 8 characters long and include uppercase letters, lowercase letters, numbers, and special characters', 
+        400
+      );
+    }
+
+    if (!validateInput(mobile_number, 'mobile_number')) {
+      return sendResponse(res, false, 'Invalid mobile number', 'Please provide a valid mobile number', 400);
+    }
 
      // Check if the email already exists
      const existingUser = await User.findOne({ where: { email: req.body.email } });
@@ -454,6 +507,39 @@ exports.update = async (req, res) => {
     }
 
     const updates = { ...req.body };
+
+    const requiredFields = [
+      { name: 'firstname', value: updates.firstname },
+      { name: 'lastname', value: updates.lastname },
+      { name: 'address', value: updates.address },
+      { name: 'mobile_number', value: updates.mobile_number },
+    ]
+
+    // Validate required fields
+    for (const field of requiredFields) {
+      if (field.value !== undefined) {
+        // Use specific validation for address
+        if (field.name === 'address') {
+          if (!validateInput(field.value, 'address')) {
+            return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+          }
+        } else {
+          // General whitespace validation for other fields
+          if (!validateInput(field.value, 'whitespace')) {
+            return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+          }
+        }
+      }
+    }
+
+    // Validate firname and lastname
+    if (!validateInput(updates.firstname, 'nameRegex')) {
+      return sendResponse(res, false, 'Firstname must contain only letters', null, 400);
+    }
+
+    if (!validateInput(updates.lastname, 'nameRegex')) {
+      return sendResponse(res, false, 'Lastname must contain only letters', null, 400);
+    }
 
     // Retain the existing email and username
     updates.email = user.email;

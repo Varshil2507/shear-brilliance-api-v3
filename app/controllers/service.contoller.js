@@ -4,6 +4,7 @@ const db = require("../models");
 const Service = db.Service;
 const sendResponse = require('../helpers/responseHelper'); // Make sure this path is correct
 const { Op } = require('sequelize'); // Import Op for Sequelize operations
+const validateInput = require('../helpers/validatorHelper'); // Import the formatPrice function
 
 
 function formatPrice(value) {
@@ -25,6 +26,30 @@ function formatPrice(value) {
 exports.create = async (req, res) => {
     try {
         const { name, description, default_service_time, min_price, max_price, isActive } = req.body;
+
+        if (!name || !description || !default_service_time || !min_price || !max_price) {
+            return sendResponse(res, false, 'All fields are required', null, 400);
+        }
+
+         // Whitespace validation for required fields
+        const requiredFields = [
+            { name: 'name', value: name },
+            { name: 'description', value: description },
+        ];
+
+        for (const field of requiredFields) {
+            if (!validateInput(field.value, 'whitespace')) {
+              return sendResponse(res, false, `Enter valid  ${field.name}`, null, 400);
+            }
+        }    
+        
+        if(!validateInput(name, 'nameRegex')) {
+            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
+        }
+
+        if(!validateInput(description, 'nameRegex')) {
+            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
+        }
 
         // Validation checks...
         if (!name) {
@@ -75,6 +100,26 @@ exports.update = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, description, default_service_time, min_price, max_price, isActive } = req.body;
+
+         // Whitespace validation for required fields
+         const requiredFields = [
+            { name: 'name', value: name },
+            { name: 'description', value: description },
+        ];
+
+        for (const field of requiredFields) {
+            if (!validateInput(field.value, 'whitespace')) {
+              return sendResponse(res, false, `Enter valid  ${field.name}`, null, 400);
+            }
+        }    
+        
+        if(!validateInput(name, 'nameRegex')) {
+            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
+        }
+
+        if(!validateInput(description, 'nameRegex')) {
+            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
+        }
 
         // Find the service by ID
         const service = await Service.findByPk(id);

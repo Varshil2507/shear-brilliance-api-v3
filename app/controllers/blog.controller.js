@@ -5,6 +5,7 @@ const { put } = require('@vercel/blob'); // Assuming you are using the Vercel Bl
 const fs = require('fs'); // For handling file buffer
 const { Op } = require("sequelize");
 const AWS = require('aws-sdk');
+const validateInput = require('../helpers/validatorHelper'); // Import the formatPrice function
 
 const s3 = new AWS.S3({
   endpoint: new AWS.Endpoint('https://tor1.digitaloceanspaces.com'),
@@ -15,6 +16,23 @@ const s3 = new AWS.S3({
 exports.create = async (req, res) => {
   try {
     let blogImage = null;
+    let { title, description } = req.body;
+
+    // Validate input
+    const requiredFields = [
+      { name: 'title', value: title, types: ['whitespace'] }, // Only check for non-empty title
+      { name: 'description', value: description, types: ['whitespace'] }, // Only check for non-empty description
+    ];
+
+    for (const field of requiredFields) {
+      if (field.value !== undefined) {
+        for (const type of field.types) {
+          if (!validateInput(field.value, type)) {
+            return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+          }
+        }
+      }
+    }
 
     if (req.file) {
       const params = {
@@ -25,20 +43,24 @@ exports.create = async (req, res) => {
         ContentType: req.file.mimetype,
       };
 
-      // Upload file to DigitalOcean Spaces
-      const uploadResult = await s3.upload(params).promise();
-      blogImage = uploadResult.Location;
+      try {
+        const uploadResult = await s3.upload(params).promise();
+        blogImage = uploadResult.Location;
+      } catch (uploadError) {
+        return sendResponse(res, false, 'Failed to upload image', null, 500);
+      }
     }
 
     const blog = await Blog.create({
-      title: req.body.title,
-      description: req.body.description,
+      title,
+      description,
       image: blogImage,
     });
 
     sendResponse(res, true, 'Blog created successfully', blog, 201);
   } catch (error) {
-    sendResponse(res, false, error.message, null, 400);
+    console.error('Error creating blog:', error); // Log detailed error
+    sendResponse(res, false, error.message || 'An error occurred', null, 500);
   }
 };
 
@@ -101,6 +123,21 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const updates = { ...req.body };
+
+    const requiredFields = [
+      { name: 'title', value: updates.title, types: ['whitespace'] }, // Only check for non-empty title
+      { name: 'description', value: updates.description, types: ['whitespace'] }, // Only check for non-empty description
+    ];
+
+    for (const field of requiredFields) {
+      if (field.value !== undefined) {
+        for (const type of field.types) {
+          if (!validateInput(field.value, type)) {
+            return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+          }
+        }
+      }
+    }
 
     // Find the blog record
     const blog = await Blog.findOne({ where: { id: req.params.id } });

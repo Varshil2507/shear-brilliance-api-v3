@@ -17,6 +17,7 @@ const { INVITE_SALON_TEMPLATE_ID } = require("../config/sendGridConfig");
 const { sendEmail } = require("../services/emailService");
 const{role}= require('../config/roles.config');
 const AWS = require('aws-sdk');
+const validateInput = require('../helpers/validatorHelper');  // Import the helper
 
 let io; // Declare io in the controller's scope
 
@@ -105,6 +106,8 @@ const getEstimatedWaitTimeForBarber = async (barberId) => {
 };
   
 
+
+
 exports.calculateBarberWaitTime = getEstimatedWaitTimeForBarber;    
 
 // Service function to cancel specific appointments
@@ -165,9 +168,76 @@ exports.create = async (req, res) => {
         const { name, firstname, lastname, email, password, address, phone_number, services, pricing, open_time, close_time, weekend_day, weekend_start, weekend_end, google_url, status } = req.body;
 
         // Validate required fields before proceeding
-        if (!email || !password || !firstname || !lastname ) {
-            return sendResponse(res, false, 'Missing required fields', null, 400);
+        if (!email || !password || !firstname || !lastname || !name || !address || !phone_number || !open_time || !close_time || !status) {
+            return sendResponse(res, false, 'All fields are required to create a salon', null, 400);
         }
+
+        const requiredFields = [
+            { name: 'name', value: name },
+            { name: 'firstname', value: firstname },
+            { name: 'lastname', value: lastname },
+            { name: 'email', value: email },
+            { name: 'address', value: address },
+            { name: 'phone_number', value: phone_number },
+            { name: 'password', value: password }
+          ];
+          
+        // Validate required fields (skip password if not being updated)
+        for (const field of requiredFields) {
+            if (field.value !== undefined) {
+                // Use specific validation for address
+                if (field.name === 'address') {
+                    if (!validateInput(field.value, 'address')) {
+                        return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                    }
+                } else {
+                    // General whitespace validation for other fields
+                    if (!validateInput(field.value, 'whitespace')) {
+                        return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                    }
+                }
+            }
+        }
+
+         // Name validation for salonName firstname and lastname
+         if (!validateInput(name, 'nameRegex')) {
+            return sendResponse(res, false, 'Firstname must contain only letters', null, 400);
+        }
+
+        if (!validateInput(firstname, 'nameRegex')) {
+            return sendResponse(res, false, 'Firstname must contain only letters', null, 400);
+        }
+    
+        if (!validateInput(lastname, 'nameRegex')) {
+            return sendResponse(res, false, 'Lastname must contain only letters', null, 400);
+        }            
+      
+          // Validate email
+        if (!validateInput(email, 'email')) {
+            return sendResponse(res, false, 'Invalid email format', null, 400);
+        }
+      
+          // Validate password
+        if (!validateInput(password, 'password')) {
+            return sendResponse(
+              res,
+              false,
+              'Enter Valid Password',
+              null,
+              400
+            );
+        }
+      
+          // Validate mobile number
+        if (!validateInput(phone_number, 'phone_number')) {
+            return sendResponse(
+              res,
+              false,
+              'Enter valid phone number',
+              null,
+              400
+            );
+        }      
 
         // Check if there are any files to upload and process each file
         if (req.files && req.files.length > 0) {
@@ -765,6 +835,51 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
     try {
         let updates = { ...req.body };
+
+        // Validate required fields before proceeding
+        const requiredFields = [
+            { name: 'name', value: updates.name },
+            { name: 'firstname', value: updates.firstname },
+            { name: 'lastname', value: updates.lastname },
+            { name: 'address', value: updates.address },
+            { name: 'phone_number', value: updates.phone_number },
+        ];
+
+        // Validate required fields (skip password if not being updated)
+        for (const field of requiredFields) {
+            if (field.value !== undefined) {
+                // Use specific validation for address
+                if (field.name === 'address') {
+                    if (!validateInput(field.value, 'address')) {
+                        return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                    }
+                } else {
+                    // General whitespace validation for other fields
+                    if (!validateInput(field.value, 'whitespace')) {
+                        return sendResponse(res, false, `Enter valid ${field.name}`, null, 400);
+                    }
+                }
+            }
+        }
+
+        // Name validation for salonName, firstname and lastname
+        if (!validateInput(updates.name, 'nameRegex')) {
+            return sendResponse(res, false, 'Salon name must contain only letters and spaces.', null, 400);
+        }
+
+        if (!validateInput(updates.firstname, 'nameRegex')) {
+            return sendResponse(res, false, 'Firstname must contain only letters and spaces.', null, 400);
+        }
+    
+        if (!validateInput(updates.lastname, 'nameRegex')) {
+            return sendResponse(res, false, 'Lastname must contain only letters and spaces.', null, 400);
+        }
+
+        // Validate phone number format if provided
+        if (updates.phone_number !== undefined && !validateInput(updates.phone_number, 'phone_number')) {
+            return sendResponse(res, false, 'Enter valid phone number', null, 400);
+        }
+
         let newPhotoUrls = [];
 
         // Find the salon record

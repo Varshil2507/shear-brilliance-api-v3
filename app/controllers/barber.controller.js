@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path'); // Make sure path is imported
 const { put } = require('@vercel/blob'); // Import 'put' directly if using Vercel's blob SDK upload method
 const sendResponse = require('../helpers/responseHelper');  // Import the helper
+const validateInput = require('../helpers/validatorHelper');  // Import the helper
 const { where } = require("sequelize");
 const bcrypt = require('bcrypt');
 const { sendEmail } = require("../services/emailService");
@@ -20,6 +21,8 @@ const Service = db.Service;
 const BarberService = db.BarberService;
 // Import necessary modules
 
+
+
 const Barber = db.Barber;
 const User = db.USER;
 const Salon = db.Salon; 
@@ -29,7 +32,7 @@ const UserSalon = db.UserSalon;
 const BarberSession = db.BarberSession;
 
 // Function to update the barber's status based on appointments
-async function updateBarberStatus(barberId) {
+async function updateBarberStatus(barberId, availability_status) {
   try {
     const activeAppointments = await Appointment.findOne({
       where: {
@@ -38,7 +41,12 @@ async function updateBarberStatus(barberId) {
       }
     });
 
-    let newStatus = activeAppointments ? 'running' : 'available';
+    let newStatus = activeAppointments ? 'unavailable' : availability_status?.toLowerCase();
+
+    if (!['available', 'unavailable'].includes(newStatus)) {
+      console.error("Invalid availability status in payload");
+      return; // Agar payload galat hai toh function stop kar do
+    }
 
     await Barber.update({ availability_status: newStatus }, { where: { id: barberId } });
   } catch (error) {
@@ -119,6 +127,8 @@ const parseServicesWithPrices = (servicesWithPrices) => {
   }
 };
 
+
+
 exports.create = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
@@ -130,6 +140,58 @@ exports.create = async (req, res) => {
     if (!firstname || !lastname || !email || !mobile_number || !password || !availability_status || !cutting_since || !organization_join_date || !SalonId || !background_color || !default_start_time || !default_end_time  || !category || !position) {
       return sendResponse(res, false, 'All fields are required', null, 400);  // Return a 400 error if any field is missing
     }
+
+     // Whitespace validation for required fields
+    const requiredFields = [
+      { name: 'firstname', value: firstname },
+      { name: 'lastname', value: lastname },
+      { name: 'email', value: email },
+      { name: 'mobile_number', value: mobile_number },
+      { name: 'password', value: password }
+    ];
+
+    for (const field of requiredFields) {
+      if (!validateInput(field.value, 'whitespace')) {
+        return sendResponse(res, false, `Enter valid  ${field.name}`, null, 400);
+      }
+    }
+
+    // Name validation for firstname and lastname
+    if (!validateInput(firstname, 'nameRegex')) {
+      return sendResponse(res, false, 'Firstname must contain only letters and spaces.', null, 400);
+    }
+
+    if (!validateInput(lastname, 'nameRegex')) {
+      return sendResponse(res, false, 'Lastname must contain only letters and spaces.', null, 400);
+    }
+    
+    // Validate email
+    if (!validateInput(email, 'email')) {
+      return sendResponse(res, false, 'Invalid email format', null, 400);
+    }
+
+    // Validate password
+    if (!validateInput(password, 'password')) {
+      return sendResponse(
+        res,
+        false,
+        'Enter valid password',
+        null,
+        400
+      );
+    }
+
+    // Validate mobile number
+    if (!validateInput(mobile_number, 'mobile_number')) {
+      return sendResponse(
+        res,
+        false,
+        'Enter valid mobile number',
+        null,
+        400
+      );
+    }
+
 
     // Non-working days validation
     let validatedNonWorkingDays = [];
@@ -274,11 +336,6 @@ exports.create = async (req, res) => {
         parsedServicesWithPrices = parseServicesWithPrices(servicesWithPrices);
       } catch (error) {
         return sendResponse(res, false, 'Invalid format for servicesWithPrices. Must be a valid JSON array.', null, 400);
-      }
-
-      // Validate the parsed array
-      if (!Array.isArray(parsedServicesWithPrices) || parsedServicesWithPrices.length === 0) {
-        return sendResponse(res, false, 'servicesWithPrices must be a non-empty array.', null, 400);
       }
 
       console.log('Parsed services:', parsedServicesWithPrices);
@@ -595,8 +652,44 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
-    const { firstname, lastname, mobile_number, address, availability_status, cutting_since, organization_join_date, SalonId, background_color, default_start_time, default_end_time, category, position, non_working_days } = req.body;
+    let { firstname, lastname, mobile_number, address, availability_status, cutting_since, organization_join_date, SalonId, background_color, default_start_time, default_end_time, category, position, non_working_days } = req.body;
     let { servicesWithPrices } = req.body;
+
+    if (!['available', 'unavailable'].includes(availability_status?.toLowerCase())) {
+      return sendResponse(res, false, 'Invalid availability status', null, 400);
+    }
+     // Whitespace validation for required fields
+    const requiredFields = [
+      { name: 'firstname', value: firstname },
+      { name: 'lastname', value: lastname },
+      { name: 'mobile_number', value: mobile_number }
+    ];
+
+    for (const field of requiredFields) {
+      if (!validateInput(field.value, 'whitespace')) {
+        return sendResponse(res, false, `Enter valid  ${field.name}`, null, 400);
+      }
+    }
+
+    // Name validation for firstname and lastname
+    if (!validateInput(firstname, 'nameRegex')) {
+      return sendResponse(res, false, 'Firstname must contain only letters', null, 400);
+    }
+
+    if (!validateInput(lastname, 'nameRegex')) {
+      return sendResponse(res, false, 'Lastname must contain only letters', null, 400);
+    }
+    
+    // Validate mobile number
+    if (!validateInput(mobile_number, 'mobile_number')) {
+      return sendResponse(
+        res,
+        false,
+        'Enter valid mobile number',
+        null,
+        400
+      );
+    }
 
     // Find the barber record
     let barber = await Barber.findOne({ where: { id: req.params.id } });
@@ -691,7 +784,7 @@ exports.update = async (req, res) => {
     // Update the barber record
     await barber.update({
       name: `${updatedFirstname} ${updatedLastname}`,
-      availability_status,
+      availability_status : availability_status.toLowerCase(),
       cutting_since,
       background_color,
       organization_join_date,
@@ -702,7 +795,11 @@ exports.update = async (req, res) => {
       position,
       photo: updates.photo,
       non_working_days: validatedNonWorkingDays || [],
+    },{
+      validate: true // Force model validation
     });
+
+    console.log('Updated barber:', barber);
 
     // Update barber sessions if non_working_days changed
     if (validatedNonWorkingDays !== null &&
@@ -725,14 +822,6 @@ exports.update = async (req, res) => {
         parsedServicesWithPrices = parseServicesWithPrices(servicesWithPrices);
       } catch (error) {
         return sendResponse(res, false, 'Invalid format for servicesWithPrices. Must be a valid JSON array.', null, 400);
-      }
-
-      if (!Array.isArray(parsedServicesWithPrices) || parsedServicesWithPrices.length === 0) {
-        return sendResponse(res, false, 'servicesWithPrices must be a non-empty array.', null, 400);
-      }
-    
-      if (!Array.isArray(parsedServicesWithPrices) || parsedServicesWithPrices.length === 0) {
-        return sendResponse(res, false, 'servicesWithPrices must be a non-empty array.', null, 400);
       }
     
       for (const service of parsedServicesWithPrices) {
@@ -773,10 +862,8 @@ exports.update = async (req, res) => {
       }
     }
     
-
-
     // Update barber status based on appointments after update
-    await updateBarberStatus(barber.id);
+    await updateBarberStatus(barber.id, availability_status);
 
     // Reload the barber with updated data
     barber = await Barber.findOne({

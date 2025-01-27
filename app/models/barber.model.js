@@ -10,8 +10,11 @@ module.exports = (sequelize, Sequelize) => {
             allowNull: false
         },
         availability_status: {
-            type: Sequelize.ENUM('available', 'unavailable', 'running'),
-            allowNull: false
+            type: Sequelize.ENUM('available', 'unavailable'),
+            allowNull: false,
+            validate: {
+                isIn: [['available', 'unavailable']] // Add explicit validation
+            }
         },
         cutting_since: {
             type: Sequelize.DATE,
