@@ -113,7 +113,7 @@ require('./app/routes/slot.routes')(app);
 require('./app/routes/transferAppointmentsOnLeave.routes')(app);
 
 // Define port
-const PORT = process.env.PORT || 8011;
+const PORT = process.env.PORT || 8012;
 
 // // Initialize Socket.io and Controllers
 socketController.initialize(io); // Initialize the Socket.IO instance
