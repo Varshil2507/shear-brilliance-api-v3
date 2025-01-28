@@ -79,16 +79,6 @@ module.exports = (app) => {
  *                 type: string
  *                 description: Barber's background color (Hex or descriptive value)
  *                 example: "#FFFFFF"
- *               default_start_time:
- *                 type: string
- *                 format: time
- *                 description: Barber's default start time (HH:mm format, 24-hour clock)
- *                 example: "09:00"
- *               default_end_time:
- *                 type: string
- *                 format: time
- *                 description: Barber's default end time (HH:mm format, 24-hour clock)
- *                 example: "17:00"
  *               category:
  *                 type: string
  *                 description: Category of the barber (1 = for_appointment, 2 = for_booking)
@@ -121,20 +111,115 @@ module.exports = (app) => {
  *                 format: binary
  *                 description: Upload the barber's profile photo (optional)
  *               servicesWithPrices:
- *                type: array
- *                description: Array of services with custom prices for the barber
- *                items:
- *                  type: object
- *                  properties:
- *                    ServiceId:
- *                      type: integer
- *                      description: ID of the service
- *                      example: 1
- *                    price:
- *                      type: number
- *                      format: float
- *                      description: Custom price for the service
- *                      example: 50.00
+ *                 type: array
+ *                 description: Array of services with custom prices for the barber
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     ServiceId:
+ *                       type: integer
+ *                       description: ID of the service
+ *                       example: 1
+ *                     price:
+ *                       type: number
+ *                       format: float
+ *                       description: Custom price for the service
+ *                       example: 50.00
+ *               weekly_schedule:
+ *                 type: object
+ *                 description: Weekly schedule for the barber (Optional)
+ *                 properties:
+ *                   Monday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Monday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Monday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Tuesday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Tuesday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Tuesday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Wednesday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Wednesday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Wednesday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Thursday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Thursday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Thursday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Friday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Friday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Friday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Saturday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Saturday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Saturday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
+ *                   Sunday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         description: Start time on Sunday (HH:mm format, 24-hour clock)
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         description: End time on Sunday (HH:mm format, 24-hour clock)
+ *                         example: "17:00"
  *     responses:
  *       200:
  *         description: Barber created successfully

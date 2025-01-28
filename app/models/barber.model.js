@@ -16,6 +16,37 @@ module.exports = (sequelize, Sequelize) => {
                 isIn: [['available', 'unavailable']] // Add explicit validation
             }
         },
+        weekly_schedule: {
+            type: Sequelize.JSON,
+            allowNull: true,
+            defaultValue: {
+                Monday: { start_time: '09:00', end_time: '22:00' },
+                Tuesday: { start_time: '09:00', end_time: '18:00' },
+                Wednesday: { start_time: '09:00', end_time: '17:00' },
+                Thursday: { start_time: '09:00', end_time: '14:00' },
+                Friday: { start_time: '09:00', end_time: '13:00' },
+                Saturday: { start_time: '09:00', end_time: '15:00' },
+                Sunday: { start_time: '09:00', end_time: '16:00' }
+            },
+            validate: {
+                isValidSchedule(value) {
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                    const timeFormat = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+                    for (const day of days) {
+                        if (!value[day]) {
+                            throw new Error(`Schedule must include ${day}`);
+                        }
+                        if (!value[day].start_time || !value[day].end_time) {
+                            throw new Error(`${day} must have start_time and end_time`);
+                        }
+                        if (!timeFormat.test(value[day].start_time) || !timeFormat.test(value[day].end_time)) {
+                            throw new Error(`Invalid time format for ${day}. Use HH:mm format (24-hour)`);
+                        }
+                    }
+                }
+            }
+        },
         cutting_since: {
             type: Sequelize.DATE,
             allowNull: true
@@ -30,14 +61,6 @@ module.exports = (sequelize, Sequelize) => {
         }, 
         background_color: { // New field name
             type: Sequelize.STRING, // Hex or descriptive color value
-            allowNull: true
-        },
-        default_start_time: {
-            type: Sequelize.TIME,
-            allowNull: true
-        }, 
-        default_end_time: {
-            type: Sequelize.TIME,
             allowNull: true
         },    
         category: {

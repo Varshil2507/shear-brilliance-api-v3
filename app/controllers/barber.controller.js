@@ -133,11 +133,11 @@ exports.create = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
     // Validate required fields
-    const { firstname, lastname, email, mobile_number, password, availability_status, cutting_since, organization_join_date, SalonId, address, background_color, default_start_time, default_end_time, category, position, non_working_days } = req.body;
+    const { firstname, lastname, email, mobile_number, password, availability_status, cutting_since, organization_join_date, SalonId, address, background_color, weekly_schedule, category, position, non_working_days } = req.body;
     let { servicesWithPrices } = req.body;
 
 
-    if (!firstname || !lastname || !email || !mobile_number || !password || !availability_status || !cutting_since || !organization_join_date || !SalonId || !background_color || !default_start_time || !default_end_time  || !category || !position) {
+    if (!firstname || !lastname || !email || !mobile_number || !password || !availability_status || !cutting_since || !organization_join_date || !SalonId || !background_color || !category || !position) {
       return sendResponse(res, false, 'All fields are required', null, 400);  // Return a 400 error if any field is missing
     }
 
@@ -191,6 +191,34 @@ exports.create = async (req, res) => {
         400
       );
     }
+
+    // Validate weekly_schedule (if provided)
+    if (weekly_schedule && !weekly_schedule.Monday) {
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const timeFormat = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+      for (const day of days) {
+        if (!weekly_schedule[day]) {
+          return sendResponse(res, false, `Weekly schedule must include ${day}`, null, 400);
+        }
+        if (
+          !weekly_schedule[day].start_time ||
+          !weekly_schedule[day].end_time ||
+          !timeFormat.test(weekly_schedule[day].start_time) ||
+          !timeFormat.test(weekly_schedule[day].end_time)
+        ) {
+          return sendResponse(
+            res,
+            false,
+            `Invalid or missing time format for ${day}. Use HH:mm format (24-hour).`,
+            null,
+            400
+          );
+        }
+      }
+    }
+
+    console.log('Parsed weekly schedule:', weekly_schedule);
 
 
     // Non-working days validation
@@ -294,8 +322,8 @@ exports.create = async (req, res) => {
       counter++;
     }
 
-    let roundedStartTime = roundTimeToNearestSlot(default_start_time);
-    let roundedEndTime = roundTimeToNearestSlot(default_end_time);
+    // let roundedStartTime = roundTimeToNearestSlot(default_start_time);
+    // let roundedEndTime = roundTimeToNearestSlot(default_end_time);
 
 
     const user = await User.create({
@@ -322,8 +350,7 @@ exports.create = async (req, res) => {
         SalonId,  // ID of the salon
         UserId: user.id,  // Link the barber to the user
         background_color,  // Link the barber to the user
-        default_start_time: roundedStartTime,
-        default_end_time: roundedEndTime,
+        weekly_schedule: weekly_schedule || {}, // Use default schedule if not provided
         category,
         position,
         non_working_days: validatedNonWorkingDays || [] // Add non_working_days with default empty array
