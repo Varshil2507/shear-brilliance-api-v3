@@ -4,7 +4,7 @@ module.exports = {
     HOST: "ep-floral-scene-a4hi3ss2-pooler.us-east-1.aws.neon.tech",
     USER: "neondb_owner",
     PASSWORD: "npg_cqv4zK7wMnUS",
-    DB: "neondb",
+    DB: "TestCheck",
     dialect: "postgresql",
     dialectModule:pg,
     pool: {
