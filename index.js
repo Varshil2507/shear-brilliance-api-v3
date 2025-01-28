@@ -37,7 +37,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Sync database
 const syncDatabase = async () => {
   try {
-    await db.sequelize.sync({ alter : true });
+    await db.sequelize.sync({  });
     console.log('Database synced successfully!');
   } catch (error) {
     console.error('Error syncing database:', error);
