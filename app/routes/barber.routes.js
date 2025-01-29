@@ -19,26 +19,43 @@ module.exports = (app) => {
    *   description: API for managing barbers
    */
 
+  
 /**
  * @swagger
  * /api/barber:
  *   post:
  *     summary: Create a new barber
  *     tags: [Barbers]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - firstname
+ *               - lastname
+ *               - email
+ *               - mobile_number
+ *               - password
+ *               - availability_status
+ *               - cutting_since
+ *               - organization_join_date
+ *               - SalonId
+ *               - background_color
+ *               - weekly_schedule
+ *               - category
+ *               - position
  *             properties:
  *               firstname:
  *                 type: string
- *                 description: Barber's first name
+ *                 description: Barber's first name (must contain only letters and spaces)
  *                 example: John
  *               lastname:
  *                 type: string
- *                 description: Barber's last name
+ *                 description: Barber's last name (must contain only letters and spaces)
  *                 example: Doe
  *               email:
  *                 type: string
@@ -47,12 +64,12 @@ module.exports = (app) => {
  *                 example: john.doe@example.com
  *               mobile_number:
  *                 type: string
- *                 description: Barber's mobile number
+ *                 description: Barber's mobile number (must be valid)
  *                 example: "+1234567890"
  *               password:
  *                 type: string
- *                 description: Password for the barber's account
- *                 example: "password123"
+ *                 description: Password for the barber's account (must meet validation criteria)
+ *                 example: "Password123!"
  *               availability_status:
  *                 type: string
  *                 description: Availability status of the barber
@@ -79,16 +96,19 @@ module.exports = (app) => {
  *                 type: string
  *                 description: Barber's background color (Hex or descriptive value)
  *                 example: "#FFFFFF"
- *               default_start_time:
+ *               weekly_schedule:
  *                 type: string
- *                 format: time
- *                 description: Barber's default start time (HH:mm format, 24-hour clock)
- *                 example: "09:00"
- *               default_end_time:
- *                 type: string
- *                 format: time
- *                 description: Barber's default end time (HH:mm format, 24-hour clock)
- *                 example: "17:00"
+ *                 description: Weekly schedule for the barber (must be a valid JSON string)
+ *                 example: |
+ *                   {
+ *                     "monday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "tuesday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "wednesday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "thursday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "friday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "saturday": { "start_time": "09:00", "end_time": "17:00" },
+ *                     "sunday": { "start_time": null, "end_time": null }
+ *                   }
  *               category:
  *                 type: string
  *                 description: Category of the barber (1 = for_appointment, 2 = for_booking)
@@ -109,32 +129,21 @@ module.exports = (app) => {
  *                   - Student
  *                 example: "Senior"
  *               non_working_days:
- *                 type: array
- *                 description: List of non-working days (1 = Monday, 7 = Sunday)
- *                 items:
- *                   type: integer
- *                   minimum: 1
- *                   maximum: 7
- *                 example: [1, 7]
+ *                 type: string
+ *                 description: List of non-working days (1 = Monday, 7 = Sunday). Can be a JSON array or comma-separated string.
+ *                 example: "[1, 7]"
  *               photo:
  *                 type: string
  *                 format: binary
- *                 description: Upload the barber's profile photo (optional)
+ *                 description: Upload the barber's profile photo (optional, must be an image file)
  *               servicesWithPrices:
- *                type: array
- *                description: Array of services with custom prices for the barber
- *                items:
- *                  type: object
- *                  properties:
- *                    ServiceId:
- *                      type: integer
- *                      description: ID of the service
- *                      example: 1
- *                    price:
- *                      type: number
- *                      format: float
- *                      description: Custom price for the service
- *                      example: 50.00
+ *                 type: string
+ *                 description: Array of services with custom prices for the barber (must be a valid JSON array)
+ *                 example: |
+ *                   [
+ *                     { "ServiceId": 1, "price": 50.00 },
+ *                     { "ServiceId": 2, "price": 60.00 }
+ *                   ]
  *     responses:
  *       200:
  *         description: Barber created successfully
@@ -178,14 +187,17 @@ module.exports = (app) => {
  *                         background_color:
  *                           type: string
  *                           example: "#FFFFFF"
- *                         default_start_time:
- *                           type: string
- *                           format: time
- *                           example: "09:00"
- *                         default_end_time:
- *                           type: string
- *                           format: time
- *                           example: "17:00"
+ *                         weekly_schedule:
+ *                           type: object
+ *                           example: {
+ *                             monday: { start_time: "09:00", end_time: "17:00" },
+ *                             tuesday: { start_time: "09:00", end_time: "17:00" },
+ *                             wednesday: { start_time: "09:00", end_time: "17:00" },
+ *                             thursday: { start_time: "09:00", end_time: "17:00" },
+ *                             friday: { start_time: "09:00", end_time: "17:00" },
+ *                             saturday: { start_time: "09:00", end_time: "17:00" },
+ *                             sunday: { start_time: null, end_time: null }
+ *                           }
  *                         category:
  *                           type: string
  *                           example: "1"
@@ -214,7 +226,7 @@ module.exports = (app) => {
  *                   type: string
  *                   example: "All fields are required"
  *       409:
- *         description: Conflict error (e.g., Email already exists)
+ *         description: Conflict error (e.g., Email already exists or Barber already exists in the salon)
  *         content:
  *           application/json:
  *             schema:
@@ -240,7 +252,6 @@ module.exports = (app) => {
  *                   type: string
  *                   example: "An error occurred while creating the barber"
  */
-
 app.post(
     `${apiPrefix}`,
     authenticateJWT,
