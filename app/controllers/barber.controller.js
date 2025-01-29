@@ -721,7 +721,7 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
-    let { firstname, lastname, mobile_number, address, availability_status, cutting_since, organization_join_date, SalonId, background_color, default_start_time, default_end_time, category, position, non_working_days } = req.body;
+    let { firstname, lastname, mobile_number, address, availability_status, cutting_since, organization_join_date, SalonId, background_color, weekly_schedule, category, position, non_working_days } = req.body;
     let { servicesWithPrices } = req.body;
 
     if (!['available', 'unavailable'].includes(availability_status?.toLowerCase())) {
@@ -796,6 +796,75 @@ exports.update = async (req, res) => {
       validatedNonWorkingDays = null;
     }
 
+    // Validate weekly_schedule if provided
+    if (weekly_schedule) {
+      try {
+        weekly_schedule = JSON.parse(weekly_schedule);
+      } catch (error) {
+        return sendResponse(res, false, 'Invalid weekly_schedule format', null, 400);
+      }
+
+      // Validate weekly_schedule object
+      if (!weekly_schedule || typeof weekly_schedule !== 'object' || Array.isArray(weekly_schedule)) {
+        return sendResponse(res, false, 'weekly_schedule must be an object', null, 400);
+      }
+
+      // List of valid days
+      const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+      // Check for invalid days in weekly_schedule input
+      const inputDays = Object.keys(weekly_schedule);
+      for (const day of inputDays) {
+        if (!validDays.includes(day)) {
+          return sendResponse(res, false, `Invalid day in weekly_schedule: ${day}`, null, 400);
+        }
+      }
+
+      // Normalize schedule with only valid input days
+      const normalizedSchedule = { ...weekly_schedule };
+
+      // Replace the input schedule with the normalized one
+      weekly_schedule = normalizedSchedule;
+
+      // Validate time format, round times, and check start < end
+      const workingDays = Object.keys(weekly_schedule).filter(dayKey => {
+        const dayNumber = validDays.indexOf(dayKey) + 1;
+        if (validatedNonWorkingDays && validatedNonWorkingDays.includes(dayNumber)) return false;
+        const { start_time, end_time } = weekly_schedule[dayKey];
+        return start_time !== null && end_time !== null;
+      });
+
+      // Ensure at least 2 working days
+      if (workingDays.length < 2) {
+        return sendResponse(res, false, 'Barber must be available for at least 2 working days per week', null, 400);
+      }
+
+      for (const day of workingDays) {
+        let { start_time, end_time } = weekly_schedule[day];
+
+        // Validate HH:mm format
+        const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+        if (!timeRegex.test(start_time) || !timeRegex.test(end_time)) {
+          return sendResponse(res, false, `${day}: Times must be in HH:mm format`, null, 400);
+        }
+
+        // Round times
+        start_time = roundTimeToNearestSlot(start_time);
+        end_time = roundTimeToNearestSlot(end_time);
+        weekly_schedule[day].start_time = start_time;
+        weekly_schedule[day].end_time = end_time;
+
+        // Convert to minutes for comparison
+        const startMinutes = parseInt(start_time.split(':')[0]) * 60 + parseInt(start_time.split(':')[1]);
+        const endMinutes = parseInt(end_time.split(':')[0]) * 60 + parseInt(end_time.split(':')[1]);
+        if (startMinutes >= endMinutes) {
+          return sendResponse(res, false, `${day}: start_time must be before end_time`, null, 400);
+        }
+      }
+
+      updates.weekly_schedule = weekly_schedule;
+    }
+
     // Check if a new profile photo is uploaded
     if (req.file) {
       const fileBuffer = req.file.buffer;
@@ -847,9 +916,6 @@ exports.update = async (req, res) => {
       address: address || user.address,
     });
 
-    let roundedStartTime = roundTimeToNearestSlot(default_start_time);
-    let roundedEndTime = roundTimeToNearestSlot(default_end_time);
-
     // Update the barber record
     await barber.update({
       name: `${updatedFirstname} ${updatedLastname}`,
@@ -858,8 +924,7 @@ exports.update = async (req, res) => {
       background_color,
       organization_join_date,
       SalonId: SalonId || barber.SalonId,
-      default_start_time: roundedStartTime,
-      default_end_time: roundedEndTime,
+      weekly_schedule: updates.weekly_schedule || barber.weekly_schedule,
       category,
       position,
       photo: updates.photo,
