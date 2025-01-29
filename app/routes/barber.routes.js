@@ -454,7 +454,7 @@ app.post(
  * /api/barber/{id}:
  *   put:
  *     summary: Update a barber by ID
- *     description: Update barber details, including user information, profile photo, services with prices, and availability. If a new profile photo is uploaded, it replaces the existing photo.
+ *     description: Update barber details, including user information, profile photo, services with prices, availability, non-working days, and weekly schedule. If a new profile photo is uploaded, it replaces the existing photo.
  *     tags: [Barbers]
  *     parameters:
  *       - in: path
@@ -512,16 +512,6 @@ app.post(
  *                 type: string
  *                 description: Hexadecimal background color for the barber's profile
  *                 example: "#ff5733"
- *               default_start_time:
- *                 type: string
- *                 format: time
- *                 description: Barber's daily start time (HH:mm:ss)
- *                 example: "09:00:00"
- *               default_end_time:
- *                 type: string
- *                 format: time
- *                 description: Barber's daily end time (HH:mm:ss)
- *                 example: "17:00:00"
  *               category:
  *                 type: integer
  *                 description: Category of the barber (1 = for appointments, 2 = for bookings)
@@ -535,21 +525,47 @@ app.post(
  *                 type: string
  *                 description: Comma-separated list, JSON array, or array of integers (1 = Monday, 7 = Sunday)
  *                 example: "1,5,7"
+ *               weekly_schedule:
+ *                 type: object
+ *                 description: Weekly schedule for the barber
+ *                 properties:
+ *                   monday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         example: "09:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         example: "17:00"
+ *                   tuesday:
+ *                     type: object
+ *                     properties:
+ *                       start_time:
+ *                         type: string
+ *                         format: time
+ *                         example: "10:00"
+ *                       end_time:
+ *                         type: string
+ *                         format: time
+ *                         example: "18:00"
  *               servicesWithPrices:
- *                type: array
- *                description: Array of services with custom prices for the barber
- *                items:
- *                  type: object
- *                  properties:
- *                    ServiceId:
- *                      type: integer
- *                      description: ID of the service
- *                      example: 1
- *                    price:
- *                      type: number
- *                      format: float
- *                      description: Custom price for the service
- *                      example: 50.00
+ *                 type: array
+ *                 description: Array of services with custom prices for the barber
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     ServiceId:
+ *                       type: integer
+ *                       description: ID of the service
+ *                       example: 1
+ *                     price:
+ *                       type: number
+ *                       format: float
+ *                       description: Custom price for the service
+ *                       example: 50.00
  *     responses:
  *       200:
  *         description: Barber updated successfully
