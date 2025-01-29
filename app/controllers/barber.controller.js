@@ -128,16 +128,14 @@ const parseServicesWithPrices = (servicesWithPrices) => {
 };
 
 
-
 exports.create = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
     // Validate required fields
-    const { firstname, lastname, email, mobile_number, password, availability_status, cutting_since, organization_join_date, SalonId, address, background_color, default_start_time, default_end_time, category, position, non_working_days } = req.body;
-    let { servicesWithPrices } = req.body;
+     let { firstname, lastname, email, mobile_number, password, availability_status, cutting_since, organization_join_date, SalonId, address, background_color, weekly_schedule, category, position, non_working_days } = req.body;
+     let { servicesWithPrices } = req.body;
 
-
-    if (!firstname || !lastname || !email || !mobile_number || !password || !availability_status || !cutting_since || !organization_join_date || !SalonId || !background_color || !default_start_time || !default_end_time  || !category || !position) {
+    if (!firstname || !lastname || !email || !mobile_number || !password || !availability_status || !cutting_since || !organization_join_date || !SalonId || !background_color || !weekly_schedule || !category || !position) {
       return sendResponse(res, false, 'All fields are required', null, 400);  // Return a 400 error if any field is missing
     }
 
@@ -192,35 +190,56 @@ exports.create = async (req, res) => {
       );
     }
 
+     // Parse weekly_schedule from JSON string to object
+     let weeklyScheduleObj;
+     try {
+       weeklyScheduleObj = JSON.parse(weekly_schedule);
+     } catch (error) {
+       return sendResponse(res, false, 'Invalid weekly_schedule format', null, 400);
+     }
+ 
+     // Validate weekly_schedule object
+     if (!weeklyScheduleObj || typeof weeklyScheduleObj !== 'object' || Array.isArray(weeklyScheduleObj)) {
+       return sendResponse(res, false, 'weekly_schedule must be an object', null, 400);
+     }
+ 
+     // List of valid days
+     const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-    // Non-working days validation
+     // Check for invalid days in weekly_schedule input
+    const inputDays = Object.keys(weeklyScheduleObj);
+    for (const day of inputDays) {
+      if (!validDays.includes(day)) {
+        return sendResponse(res, false, `Invalid day in weekly_schedule: ${day}`, null, 400);
+      }
+    }
+
+    // Create normalized schedule with only valid input days
+    const normalizedSchedule = { ...weeklyScheduleObj };
+
+    // Replace the input schedule with the normalized one
+    weekly_schedule = normalizedSchedule;
+
+    // Validate non_working_days
     let validatedNonWorkingDays = [];
-    if (non_working_days !== undefined) {
+    if (non_working_days !== undefined && non_working_days !== null && non_working_days !== '') {
       try {
         if (typeof non_working_days === 'string') {
-          // Split the string by commas and convert to an array of numbers
           validatedNonWorkingDays = non_working_days.split(',').map(day => parseInt(day.trim(), 10));
         } else if (Array.isArray(non_working_days)) {
-          // Use the array directly if it's already an array
           validatedNonWorkingDays = non_working_days;
         } else {
-          // Attempt to parse JSON if it's not a plain array or string
           validatedNonWorkingDays = JSON.parse(non_working_days);
         }
       } catch (e) {
         return sendResponse(res, false, 'non_working_days must be a valid array or a comma-separated string', null, 400);
       }
 
-      // Validate array contents
       if (!Array.isArray(validatedNonWorkingDays)) {
         return sendResponse(res, false, 'non_working_days must be an array', null, 400);
       }
 
-      if (validatedNonWorkingDays.length > 6) {
-        return sendResponse(res, false, 'Cannot have more than 6 non-working days', null, 400);
-      }
-
-      // Validate day values
+      // Validate day values (1-7)
       const invalidDays = validatedNonWorkingDays.filter(day => 
         !Number.isInteger(Number(day)) || Number(day) < 1 || Number(day) > 7
       );
@@ -228,8 +247,63 @@ exports.create = async (req, res) => {
         return sendResponse(res, false, 'Days must be integers between 1 and 7', null, 400);
       }
 
-      // Remove duplicates and ensure all are numbers
+      // Remove duplicates and ensure numbers
       validatedNonWorkingDays = [...new Set(validatedNonWorkingDays.map(Number))];
+    }
+
+    // Check for conflicts between non_working_days and weekly_schedule
+    const dayNumberToKey = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    for (const dayNumber of validatedNonWorkingDays) {
+      const dayKey = dayNumberToKey[dayNumber - 1];
+      if (weekly_schedule[dayKey]) { // Check only if day exists in weekly_schedule
+        const daySchedule = weekly_schedule[dayKey];
+        if (daySchedule.start_time !== null || daySchedule.end_time !== null) {
+          return sendResponse(
+            res,
+            false,
+            `Cannot have working hours on non-working day (day ${dayNumber})`,
+            null,
+            400
+          );
+        }
+      }
+    }
+
+    // Calculate actual working days (exclude non_working_days and check times)
+    const workingDays = Object.keys(weekly_schedule).filter(dayKey => {
+      const dayNumber = validDays.indexOf(dayKey) + 1;
+      if (validatedNonWorkingDays.includes(dayNumber)) return false;
+      const { start_time, end_time } = weekly_schedule[dayKey];
+      return start_time !== null && end_time !== null;
+    });
+
+    // Ensure at least 2 working days
+    if (workingDays.length < 2) {
+      return sendResponse(res, false, 'Barber must be available for at least 2 working days per week', null, 400);
+    }
+
+     // Validate time format, round times, and check start < end
+     for (const day of workingDays) {
+      let { start_time, end_time } = weekly_schedule[day];
+      
+      // Validate HH:mm format
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(start_time) || !timeRegex.test(end_time)) {
+        return sendResponse(res, false, `${day}: Times must be in HH:mm format`, null, 400);
+      }
+
+      // Round times
+      start_time = roundTimeToNearestSlot(start_time);
+      end_time = roundTimeToNearestSlot(end_time);
+      weekly_schedule[day].start_time = start_time;
+      weekly_schedule[day].end_time = end_time;
+
+      // Convert to minutes for comparison
+      const startMinutes = parseInt(start_time.split(':')[0]) * 60 + parseInt(start_time.split(':')[1]);
+      const endMinutes = parseInt(end_time.split(':')[0]) * 60 + parseInt(end_time.split(':')[1]);
+      if (startMinutes >= endMinutes) {
+        return sendResponse(res, false, `${day}: start_time must be before end_time`, null, 400);
+      }
     }
 
     let profile_photo = null;
@@ -294,10 +368,6 @@ exports.create = async (req, res) => {
       counter++;
     }
 
-    let roundedStartTime = roundTimeToNearestSlot(default_start_time);
-    let roundedEndTime = roundTimeToNearestSlot(default_end_time);
-
-
     const user = await User.create({
       username: username,
       firstname: firstname,
@@ -322,8 +392,7 @@ exports.create = async (req, res) => {
         SalonId,  // ID of the salon
         UserId: user.id,  // Link the barber to the user
         background_color,  // Link the barber to the user
-        default_start_time: roundedStartTime,
-        default_end_time: roundedEndTime,
+        weekly_schedule, // Use the new weekly_schedule field
         category,
         position,
         non_working_days: validatedNonWorkingDays || [] // Add non_working_days with default empty array

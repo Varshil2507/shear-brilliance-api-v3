@@ -32,14 +32,19 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING, // Hex or descriptive color value
             allowNull: true
         },
-        default_start_time: {
-            type: Sequelize.TIME,
-            allowNull: true
-        }, 
-        default_end_time: {
-            type: Sequelize.TIME,
-            allowNull: true
-        },    
+        weekly_schedule: { // New field for weekly schedule
+            type: Sequelize.JSON, // Store JSON data for weekly schedule
+            allowNull: true,
+            defaultValue: {
+                monday: { start_time: null, end_time: null },
+                tuesday: { start_time: null, end_time: null },
+                wednesday: { start_time: null, end_time: null },
+                thursday: { start_time: null, end_time: null },
+                friday: { start_time: null, end_time: null },
+                saturday: { start_time: null, end_time: null },
+                sunday: { start_time: null, end_time: null }
+            }
+        },
         category: {
             type: Sequelize.INTEGER,
             allowNull: false,
@@ -113,8 +118,8 @@ module.exports = (sequelize, Sequelize) => {
         });
     };
 
-     // Add afterUpdate Hook
-     Barber.addHook('afterUpdate', async (barber, options) => {
+    // Add afterUpdate Hook
+    Barber.addHook('afterUpdate', async (barber, options) => {
         if (barber.changed('category') || barber.changed('position')) {
             const BarberSession = require("./barbersession.model")(sequelize, Sequelize);
             await BarberSession.update(
