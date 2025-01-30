@@ -134,8 +134,9 @@ class BarberSlotManager {
         const dayOfWeek = date.day();
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const dayKey = days[dayOfWeek];
-        const daySchedule = barber.weekly_schedule[dayKey];
-        const hasValidHours = daySchedule.start_time && daySchedule.end_time;
+
+        const daySchedule = barber.weekly_schedule ? barber.weekly_schedule[dayKey] : null;
+        const hasValidHours = daySchedule && daySchedule.start_time && daySchedule.end_time;
         
         if (isOnLeave && isNonWorking) return 'leave-and-non-working';
         if (isOnLeave) return 'leave';
@@ -152,6 +153,11 @@ class BarberSlotManager {
             const dateStr = currentDate.format('YYYY-MM-DD');
             console.log(`Processing date ${dateStr} for barber ${barber.id}`);
 
+            // Calculate dayKey for the current date
+            const dayOfWeek = currentDate.day();
+            const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const dayKey = days[dayOfWeek];
+
             try {
                 const shouldGenerate = await this.shouldGenerateSession(barber, currentDate);
                 console.log(`Should generate session for ${dateStr}:`, shouldGenerate);
@@ -160,7 +166,6 @@ class BarberSlotManager {
                     // Get day's schedule from weekly_schedule
                     const dayOfWeek = currentDate.day();
                     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-                    const dayKey = days[dayOfWeek];
                     const daySchedule = barber.weekly_schedule[dayKey];
 
                       // Additional check (redundant but safe)
@@ -210,17 +215,19 @@ class BarberSlotManager {
                     // ... rest of the unavailability emission code ...
                     const isOnLeave = await this.isBarberOnLeave(barber.id, currentDate.toDate());
                     const isNonWorking = this.isNonWorkingDay(barber, currentDate);
+
+                    const reason = await this.getUnavailabilityReason(barber, currentDate);
                     
                     this.emitSocketEvent('sessionUnavailable', {
                         barberId: barber.id,
                         salonId: barber.SalonId,
                         date: dateStr,
-                        reason: await this.getUnavailabilityReason(barber, currentDate),
+                        reason: reason,
                         isNonWorking: isNonWorking,
                         isOnLeave: isOnLeave,
                         unavailabilityDetails: {
                             nonWorkingDays: barber.non_working_days || [],
-                            weeklySchedule: barber.weekly_schedule
+                            weeklySchedule: barber.weekly_schedule || {}
                         }
                     });
                 }
