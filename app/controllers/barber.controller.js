@@ -942,6 +942,18 @@ exports.update = async (req, res) => {
       include: [{ model: User, as: 'user', attributes: { exclude: ['password'] } }]
     });
 
+
+    // Check if the weekly schedule has changed
+    if (JSON.stringify(oldWeeklySchedule) !== JSON.stringify(updatedBarber.weekly_schedule)) {
+      try {
+        // Trigger the schedule update logic
+        await barberSlotManager.updateBarberSessionsForScheduleChange(barber.id);
+      } catch (error) {
+        console.error('Error updating sessions for schedule change:', error);
+        // Handle the error if needed (e.g., log it or notify the admin)
+      }
+    }
+
     // Update barber sessions if non_working_days changed
     if (validatedNonWorkingDays !== null &&
       JSON.stringify(oldNonWorkingDays) !== JSON.stringify(validatedNonWorkingDays)) {
