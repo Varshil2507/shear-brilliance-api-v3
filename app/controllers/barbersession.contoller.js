@@ -327,8 +327,7 @@ const groupSessionsBySalonAndBarber = async (barberSessions, barberLeaves = []) 
           photo: session.barber.photo,
           category: session.barber.category,
           position: session.barber.position,
-          default_start_time: session.barber.default_start_time,
-          default_end_time: session.barber.default_end_time,
+          weekly_schedule: session.barber.weekly_schedule, // Add weekly schedule here
           non_working_days: session.barber.non_working_days
         },
         schedule: []
@@ -496,7 +495,8 @@ const processBarberData = async (groupedData) => {
         ...barberData.barberInfo,
         estimated_wait_time: waitTime.totalWaitTime,
         servicesWithPrices,
-        schedule: barberData.schedule
+        schedule: barberData.schedule,
+        weekly_schedule: barberData.barberInfo.weekly_schedule // Include weekly schedule in the response
       };
     });
     
