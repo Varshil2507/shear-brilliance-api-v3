@@ -63,8 +63,22 @@ class BarberSlotManager {
         // Check both leave and non-working day
         const isOnLeave = await this.isBarberOnLeave(barber.id, date.toDate());
         const isNonWorking = this.isNonWorkingDay(barber, date);
+
+        // Get weekly schedule for current day
+        const dayOfWeek = date.day();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = days[dayOfWeek];
+
+        // Add safety checks for weekly_schedule
+        if (!barber.weekly_schedule || !barber.weekly_schedule[dayKey]) {
+            console.log(`No weekly schedule found for barber ${barber.id} on ${dayKey}`);
+            return false;
+        }
+
+        const daySchedule = barber.weekly_schedule[dayKey];
+        const hasValidHours = daySchedule.start_time && daySchedule.end_time;
         
-        return !isOnLeave && !isNonWorking;
+        return !isOnLeave && !isNonWorking && hasValidHours;
     }
 
 
@@ -115,10 +129,18 @@ class BarberSlotManager {
     async getUnavailabilityReason(barber, date) {
         const isOnLeave = await this.isBarberOnLeave(barber.id, date.toDate());
         const isNonWorking = this.isNonWorkingDay(barber, date);
+
+        // Check weekly schedule
+        const dayOfWeek = date.day();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = days[dayOfWeek];
+        const daySchedule = barber.weekly_schedule[dayKey];
+        const hasValidHours = daySchedule.start_time && daySchedule.end_time;
         
         if (isOnLeave && isNonWorking) return 'leave-and-non-working';
         if (isOnLeave) return 'leave';
         if (isNonWorking) return 'non-working-day';
+        if (!hasValidHours) return 'no-working-hours';
         return 'unavailable';
     }
 
@@ -135,15 +157,27 @@ class BarberSlotManager {
                 console.log(`Should generate session for ${dateStr}:`, shouldGenerate);
 
                 if (shouldGenerate) {
+                    // Get day's schedule from weekly_schedule
+                    const dayOfWeek = currentDate.day();
+                    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    const dayKey = days[dayOfWeek];
+                    const daySchedule = barber.weekly_schedule[dayKey];
+
+                      // Additional check (redundant but safe)
+                    if (!daySchedule || !daySchedule.start_time || !daySchedule.end_time) {
+                        console.log(`Invalid schedule for ${dayKey}`);
+                        continue;
+                    }
+
                     const sessionData = {
                         BarberId: barber.id,
                         SalonId: barber.SalonId,
-                        start_time: barber.default_start_time,
-                        end_time: barber.default_end_time,
+                        start_time: daySchedule.start_time,
+                        end_time: daySchedule.end_time,
                         session_date: dateStr,
                         remaining_time: this.calculateRemainingTime(
-                            barber.default_start_time,
-                            barber.default_end_time
+                            daySchedule.start_time,
+                            daySchedule.end_time
                         ),
                         category: barber.category,
                         position: barber.position
@@ -168,8 +202,8 @@ class BarberSlotManager {
                         sessionId: session.id,
                         date: dateStr,
                         hasSlots: slots.length > 0,
-                        startTime: barber.default_start_time,
-                        endTime: barber.default_end_time
+                        startTime: daySchedule.start_time,
+                        endTime: daySchedule.end_time
                     });
                 } else {
                     console.log(`Skipping session generation for barber ${barber.id} on ${dateStr} - unavailable`);
@@ -186,8 +220,7 @@ class BarberSlotManager {
                         isOnLeave: isOnLeave,
                         unavailabilityDetails: {
                             nonWorkingDays: barber.non_working_days || [],
-                            defaultStartTime: barber.default_start_time,
-                            defaultEndTime: barber.default_end_time
+                            weeklySchedule: barber.weekly_schedule
                         }
                     });
                 }
@@ -208,11 +241,18 @@ class BarberSlotManager {
     async maintainBarberSessions(barber, today, fourWeeksLater, transaction) {
         try {
             const barberWithSchedule = await this.Barber.findByPk(barber.id, {
+                attributes: ['id', 'SalonId', 'category', 'position', 'weekly_schedule', 'non_working_days'],
                 transaction
             });
 
             if (!barberWithSchedule) {
                 console.error(`Barber ${barber.id} not found`);
+                return;
+            }
+
+            // 5. Verify schedule data exists
+            if (!barberWithSchedule.weekly_schedule) {
+                console.error(`No weekly schedule found for barber ${barber.id}`);
                 return;
             }
 
@@ -259,7 +299,10 @@ class BarberSlotManager {
             });
 
             const barbers = await this.Barber.findAll({
-                where: { availability_status: 'available' }
+                where: { availability_status: 'available' },
+                attributes: {
+                    include: ['weekly_schedule'] // Explicitly include the JSON field
+                },
             });
 
             console.log(`Found ${barbers.length} available barbers`);
@@ -267,8 +310,7 @@ class BarberSlotManager {
             for (const barber of barbers) {
                 console.log(`Processing barber ID: ${barber.id}`, {
                     nonWorkingDays: barber.non_working_days,
-                    defaultStartTime: barber.default_start_time,
-                    defaultEndTime: barber.default_end_time
+                    weeklySchedule: barber.weekly_schedule
                 });
 
                 await this.maintainBarberSessions(barber, today, fourWeeksLater, transaction);
@@ -357,33 +399,42 @@ class BarberSlotManager {
                         if (!existingSession) {
                             const isOnLeave = await this.isBarberOnLeave(barberId, currentDate.toDate());
                             if (!isOnLeave) {
-                                const sessionData = {
-                                    BarberId: barberId,
-                                    SalonId: barber.SalonId,
-                                    start_time: barber.default_start_time,
-                                    end_time: barber.default_end_time,
-                                    session_date: dateStr,
-                                    remaining_time: this.calculateRemainingTime(
-                                        barber.default_start_time,
-                                        barber.default_end_time
-                                    ),
-                                    category: barber.category,
-                                    position: barber.position
-                                };
+                                // Get day's schedule
+                                const dayOfWeek = currentDate.day();
+                                const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                                const dayKey = days[dayOfWeek];
+                                const daySchedule = barber.weekly_schedule[dayKey];
 
-                                const newSession = await this.BarberSession.create(sessionData, { transaction });
-                                const slots = await this.generateSlots(newSession, barber);
-                                await this.Slot.bulkCreate(slots, { transaction });
+                                if (daySchedule.start_time && daySchedule.end_time) {
+                                    const sessionData = {
+                                        BarberId: barberId,
+                                        SalonId: barber.SalonId,
+                                        start_time: daySchedule.start_time,
+                                        end_time: daySchedule.end_time,
+                                        session_date: dateStr,
+                                        remaining_time: this.calculateRemainingTime(
+                                            daySchedule.start_time,
+                                            daySchedule.end_time
+                                        ),
+                                        category: barber.category,
+                                        position: barber.position
+                                    };
+                      
 
-                                this.emitSocketEvent('sessionCreated', {
-                                    barberId: barber.id,
-                                    salonId: barber.SalonId,
-                                    sessionId: newSession.id,
-                                    date: dateStr,
-                                    hasSlots: slots.length > 0,
-                                    startTime: barber.default_start_time,
-                                    endTime: barber.default_end_time
-                                });
+                                    const newSession = await this.BarberSession.create(sessionData, { transaction });
+                                    const slots = await this.generateSlots(newSession, barber);
+                                    await this.Slot.bulkCreate(slots, { transaction });
+
+                                    this.emitSocketEvent('sessionCreated', {
+                                        barberId: barber.id,
+                                        salonId: barber.SalonId,
+                                        sessionId: newSession.id,
+                                        date: dateStr,
+                                        hasSlots: slots.length > 0,
+                                        startTime: daySchedule.start_time,
+                                        endTime: daySchedule.end_time
+                                    });
+                                }
                             }
                         }
                     } else if (!wasNonWorking && isNowNonWorking) {
@@ -407,8 +458,7 @@ class BarberSlotManager {
                                 isOnLeave: false,
                                 unavailabilityDetails: {
                                     nonWorkingDays: newNonWorkingDays,
-                                    defaultStartTime: barber.default_start_time,
-                                    defaultEndTime: barber.default_end_time
+                                    weeklySchedule: barber.weekly_schedule
                                 }
                             });
                         }
@@ -427,6 +477,118 @@ class BarberSlotManager {
             throw error;
         }
     }
+
+
+    // Inside BarberSlotManager class
+
+async updateBarberSessionsForScheduleChange(barberId) {
+    const transaction = await this.db.sequelize.transaction();
+    try {
+      const barber = await this.Barber.findByPk(barberId, { transaction });
+      if (!barber) {
+        throw new Error('Barber not found');
+      }
+  
+      const today = moment();
+      const nextMonday = today.clone().startOf('isoWeek').add(1, 'week');
+      const fourWeeksLater = nextMonday.clone().add(4, 'weeks').endOf('isoWeek');
+  
+      // Fetch existing sessions from next Monday onwards
+      const existingSessions = await this.BarberSession.findAll({
+        where: {
+          BarberId: barberId,
+          session_date: { [Op.gte]: nextMonday.format('YYYY-MM-DD') }
+        },
+        transaction
+      });
+  
+      // Process each session
+      for (const session of existingSessions) {
+        const sessionDate = moment(session.session_date);
+        const dayOfWeek = sessionDate.day();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = days[dayOfWeek];
+        const daySchedule = barber.weekly_schedule[dayKey];
+  
+        if (!daySchedule || !daySchedule.start_time || !daySchedule.end_time) {
+          // If the day is no longer available, delete the session and its slots
+          await this.Slot.destroy({
+            where: { BarberSessionId: session.id },
+            transaction
+          });
+          await session.destroy({ transaction });
+  
+          this.emitSocketEvent('sessionUnavailable', {
+            barberId: barber.id,
+            salonId: barber.SalonId,
+            date: sessionDate.format('YYYY-MM-DD'),
+            reason: 'no-working-hours',
+            isNonWorking: false,
+            isOnLeave: false,
+            unavailabilityDetails: {
+              nonWorkingDays: barber.non_working_days || [],
+              weeklySchedule: barber.weekly_schedule
+            }
+          });
+        } else {
+          // If the day is still available, check if the schedule has changed
+          const hasScheduleChanged =
+            session.start_time !== daySchedule.start_time ||
+            session.end_time !== daySchedule.end_time;
+  
+          if (hasScheduleChanged) {
+            // Update the session with the new schedule
+            await session.update(
+              {
+                start_time: daySchedule.start_time,
+                end_time: daySchedule.end_time,
+                remaining_time: this.calculateRemainingTime(
+                  daySchedule.start_time,
+                  daySchedule.end_time
+                )
+              },
+              { transaction }
+            );
+  
+            // Delete existing slots and regenerate them
+            await this.Slot.destroy({
+              where: { BarberSessionId: session.id },
+              transaction
+            });
+  
+            const slots = await this.generateSlots(session, barber);
+            await this.Slot.bulkCreate(slots, { transaction });
+  
+            this.emitSocketEvent('sessionUpdated', {
+              barberId: barber.id,
+              salonId: barber.SalonId,
+              sessionId: session.id,
+              date: sessionDate.format('YYYY-MM-DD'),
+              hasSlots: slots.length > 0,
+              startTime: daySchedule.start_time,
+              endTime: daySchedule.end_time
+            });
+          }
+        }
+      }
+  
+      // Generate new sessions for any dates that don't have sessions yet
+      await this.generateSessionsForDateRange(
+        barber,
+        nextMonday,
+        fourWeeksLater,
+        transaction
+      );
+  
+      await transaction.commit();
+      return true;
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Error updating sessions for schedule change:', error);
+      throw error;
+    }
+  }
+
 }
 
 // Create singleton instance

@@ -765,6 +765,7 @@ exports.update = async (req, res) => {
     if (!barber) {
       return sendResponse(res, false, "Barber not found", null, 404);
     }
+    const oldWeeklySchedule = barber.weekly_schedule;
 
     const updates = { ...req.body };
     const oldNonWorkingDays = barber.non_working_days;
@@ -934,6 +935,24 @@ exports.update = async (req, res) => {
     });
 
     console.log('Updated barber:', barber);
+
+    // Reload the barber with updated data
+    const updatedBarber = await Barber.findOne({
+      where: { id: barber.id },
+      include: [{ model: User, as: 'user', attributes: { exclude: ['password'] } }]
+    });
+
+
+    // Check if the weekly schedule has changed
+    if (JSON.stringify(oldWeeklySchedule) !== JSON.stringify(updatedBarber.weekly_schedule)) {
+      try {
+        // Trigger the schedule update logic
+        await barberSlotManager.updateBarberSessionsForScheduleChange(barber.id);
+      } catch (error) {
+        console.error('Error updating sessions for schedule change:', error);
+        // Handle the error if needed (e.g., log it or notify the admin)
+      }
+    }
 
     // Update barber sessions if non_working_days changed
     if (validatedNonWorkingDays !== null &&
