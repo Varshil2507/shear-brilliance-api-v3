@@ -765,6 +765,7 @@ exports.update = async (req, res) => {
     if (!barber) {
       return sendResponse(res, false, "Barber not found", null, 404);
     }
+    const oldWeeklySchedule = barber.weekly_schedule;
 
     const updates = { ...req.body };
     const oldNonWorkingDays = barber.non_working_days;
@@ -934,6 +935,12 @@ exports.update = async (req, res) => {
     });
 
     console.log('Updated barber:', barber);
+
+    // Reload the barber with updated data
+    const updatedBarber = await Barber.findOne({
+      where: { id: barber.id },
+      include: [{ model: User, as: 'user', attributes: { exclude: ['password'] } }]
+    });
 
     // Update barber sessions if non_working_days changed
     if (validatedNonWorkingDays !== null &&
