@@ -909,6 +909,10 @@ exports.update = async (req, res) => {
       counter++;
     }
 
+       // Check if weekly schedule OR category changed
+    const oldCategory = barber.category; // Capture before update
+    console.log('Old category:', oldCategory);
+
     await user.update({
       firstname: updatedFirstname,
       lastname: updatedLastname,
@@ -942,12 +946,21 @@ exports.update = async (req, res) => {
       include: [{ model: User, as: 'user', attributes: { exclude: ['password'] } }]
     });
 
+ 
+    const newCategory = updatedBarber.category;
+
+   
+    console.log('New category:', newCategory);
+
+    const categoryChanged = oldCategory !== newCategory;
+
+    console.log('Category changed:', categoryChanged);
 
     // Check if the weekly schedule has changed
-    if (JSON.stringify(oldWeeklySchedule) !== JSON.stringify(updatedBarber.weekly_schedule)) {
+    if (JSON.stringify(oldWeeklySchedule) !== JSON.stringify(updatedBarber.weekly_schedule) || categoryChanged) {
       try {
         // Trigger the schedule update logic
-        await barberSlotManager.updateBarberSessionsForScheduleChange(barber.id);
+        await barberSlotManager.updateBarberSessionsForScheduleChange(barber.id, categoryChanged ,{ transaction });
       } catch (error) {
         console.error('Error updating sessions for schedule change:', error);
         // Handle the error if needed (e.g., log it or notify the admin)

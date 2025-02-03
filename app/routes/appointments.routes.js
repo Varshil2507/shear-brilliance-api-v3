@@ -454,7 +454,7 @@ module.exports = (app) => {
     *                                 type: string
     *                               weekly_schedule:
     *                                 type: string
-    *                                 example: "{"Monday": {"start": "09:00", "end": "18:00"}}"
+    *                                 example: '{"Monday": {"start": "09:00", "end": "18:00"}}'
     *                           salon:
     *                             type: object
     *                             properties:
@@ -1573,7 +1573,7 @@ app.get(`${apiPrefix}/:appointmentId/last-haircut`, appointmentsController.getLa
  *                                 example: "barber_photo.jpg"
  *                               weekly_schedule:
  *                                  type: string
- *                                  example: "{"Monday": {"start": "09:00", "end": "18:00"}}"
+ *                                  example: '{"Monday": {"start": "09:00", "end": "18:00"}}'
  *                           salon:
  *                             type: object
  *                             properties:
