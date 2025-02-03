@@ -487,41 +487,52 @@ class BarberSlotManager {
 
 
     // Inside BarberSlotManager class
-    async updateBarberSessionsForScheduleChange(barberId) {
-        const transaction = await this.db.sequelize.transaction();
+    async updateBarberSessionsForScheduleChange(barberId, categoryChanged,  options = {}) {
+        const transaction = options.transaction || await this.db.sequelize.transaction();
         try {
             const barber = await this.Barber.findByPk(barberId, { transaction });
             if (!barber) {
                 throw new Error('Barber not found');
             }
-    
+
+            // Determine date range
             const today = moment();
-            const nextMonday = today.clone().startOf('isoWeek').add(1, 'week');
-            const fourWeeksLater = nextMonday.clone().add(4, 'weeks').endOf('isoWeek');
-    
-            // Fetch existing sessions from next Monday onwards
+            let startDate;
+            let endDate;
+            
+            if (categoryChanged) {
+                // For category changes: today + 4 weeks
+                startDate = today.clone().startOf('day');
+                endDate = today.clone().add(4, 'weeks').endOf('day');
+            } else {
+                // For schedule changes: next Monday + 3 weeks
+                startDate = today.clone().startOf('isoWeek').add(1, 'week');
+                endDate = startDate.clone().add(3, 'weeks').endOf('isoWeek');
+            }
+
+            // Fetch existing sessions in range
             const existingSessions = await this.BarberSession.findAll({
                 where: {
                     BarberId: barberId,
                     session_date: { 
                         [Op.between]: [
-                            nextMonday.format('YYYY-MM-DD'), 
-                            fourWeeksLater.format('YYYY-MM-DD')
+                            startDate.format('YYYY-MM-DD'), 
+                            endDate.format('YYYY-MM-DD')
                         ]
                     }
                 },
                 transaction
             });
-    
-            // Create a map of existing sessions by date
+
+            // Create session map
             const sessionsByDate = {};
             existingSessions.forEach(session => {
                 sessionsByDate[moment(session.session_date).format('YYYY-MM-DD')] = session;
             });
-    
-            // Process each date in the range
-            let currentDate = nextMonday.clone();
-            while (currentDate.isSameOrBefore(fourWeeksLater)) {
+
+            // Process each date in range
+            let currentDate = startDate.clone();
+            while (currentDate.isSameOrBefore(endDate)) {
                 const dateStr = currentDate.format('YYYY-MM-DD');
                 const dayOfWeek = currentDate.day();
                 const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -529,63 +540,63 @@ class BarberSlotManager {
                 const daySchedule = barber.weekly_schedule[dayKey];
                 
                 const existingSession = sessionsByDate[dateStr];
-                const shouldHaveSession = daySchedule && daySchedule.start_time && daySchedule.end_time && 
+                const shouldHaveSession = daySchedule && 
+                                        daySchedule.start_time && 
+                                        daySchedule.end_time && 
                                         !(barber.non_working_days || []).includes(dayOfWeek);
-    
+
                 if (existingSession) {
+                    const scheduleChanged = existingSession.start_time !== daySchedule.start_time || 
+                                        existingSession.end_time !== daySchedule.end_time;
+                    const needsUpdate = scheduleChanged || categoryChanged;
+
                     if (!shouldHaveSession) {
-                        // Delete session if the day is now non-working
+                        // Remove invalid session
                         await this.Slot.destroy({
                             where: { BarberSessionId: existingSession.id },
                             transaction
                         });
                         await existingSession.destroy({ transaction });
-    
+
                         this.emitSocketEvent('sessionUnavailable', {
                             barberId: barber.id,
                             salonId: barber.SalonId,
                             date: dateStr,
                             reason: 'no-working-hours',
                             isNonWorking: true,
-                            isOnLeave: false,
-                            unavailabilityDetails: {
-                                nonWorkingDays: barber.non_working_days || [],
-                                weeklySchedule: barber.weekly_schedule
-                            }
+                            isOnLeave: false
                         });
-                    } else if (existingSession.start_time !== daySchedule.start_time || 
-                              existingSession.end_time !== daySchedule.end_time) {
-                        // Update existing session if schedule changed
+                    } else if (needsUpdate) {
+                        // Update existing session
                         await existingSession.update({
                             start_time: daySchedule.start_time,
                             end_time: daySchedule.end_time,
                             remaining_time: this.calculateRemainingTime(
                                 daySchedule.start_time,
                                 daySchedule.end_time
-                            )
+                            ),
+                            category: barber.category
                         }, { transaction });
-    
+
                         // Regenerate slots
                         await this.Slot.destroy({
                             where: { BarberSessionId: existingSession.id },
                             transaction
                         });
-    
+
                         const slots = await this.generateSlots(existingSession, barber);
                         await this.Slot.bulkCreate(slots, { transaction });
-    
+
                         this.emitSocketEvent('sessionUpdated', {
                             barberId: barber.id,
                             salonId: barber.SalonId,
                             sessionId: existingSession.id,
                             date: dateStr,
-                            hasSlots: slots.length > 0,
-                            startTime: daySchedule.start_time,
-                            endTime: daySchedule.end_time
+                            hasSlots: slots.length > 0
                         });
                     }
                 } else if (shouldHaveSession) {
-                    // Create new session if it doesn't exist and should
+                    // Create new session
                     const sessionData = {
                         BarberId: barberId,
                         SalonId: barber.SalonId,
@@ -599,30 +610,31 @@ class BarberSlotManager {
                         category: barber.category,
                         position: barber.position
                     };
-    
+
                     const newSession = await this.BarberSession.create(sessionData, { transaction });
                     const slots = await this.generateSlots(newSession, barber);
                     await this.Slot.bulkCreate(slots, { transaction });
-    
+
                     this.emitSocketEvent('sessionCreated', {
                         barberId: barber.id,
                         salonId: barber.SalonId,
                         sessionId: newSession.id,
                         date: dateStr,
-                        hasSlots: slots.length > 0,
-                        startTime: daySchedule.start_time,
-                        endTime: daySchedule.end_time
+                        hasSlots: slots.length > 0
                     });
                 }
-    
+
                 currentDate.add(1, 'day');
             }
-    
-            await transaction.commit();
+
+            // Commit only if the transaction was created here
+            if (!options.transaction) {
+                await transaction.commit();
+            }
             return true;
         } catch (error) {
             await transaction.rollback();
-            console.error('Error updating sessions for schedule change:', error);
+            console.error('Error updating sessions:', error);
             throw error;
         }
     }
