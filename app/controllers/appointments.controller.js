@@ -1090,7 +1090,7 @@ exports.findAll = async (req, res) => {
                 {
                     model: Barber,
                     as: 'Barber',
-                    attributes: ['id', 'name', 'availability_status', 'cutting_since', 'organization_join_date', 'photo', 'default_start_time', 'default_end_time'],
+                    attributes: ['id', 'name', 'availability_status', 'cutting_since', 'organization_join_date', 'photo', 'weekly_schedule'],
                     where: {
                         category: {
                             [Sequelize.Op.in]: [BarberCategoryENUM.ForAppointment, BarberCategoryENUM.ForWalkIn],
@@ -1279,8 +1279,7 @@ exports.findAllAppointments = async (req, res) => {
                         name: apt.Barber?.name,
                         photo: apt.Barber?.photo,
                         availability: apt.Barber?.availability_status,
-                        default_start_time: apt.Barber?.default_start_time,
-                        default_end_time: apt.Barber?.default_end_time,
+                        weekly_schedule: apt.Barber?.weekly_schedule,
                         background_color: apt.Barber?.background_color
                     },
                     salon: apt.salon,
@@ -2334,7 +2333,7 @@ exports.getAppointments = async (req, res) => {
                 {
                     model: Barber,
                     as: 'Barber',
-                    attributes: ['id', 'name', 'availability_status', 'cutting_since', 'organization_join_date', 'photo', 'default_start_time','default_end_time'],
+                    attributes: ['id', 'name', 'availability_status', 'cutting_since', 'organization_join_date', 'photo', 'weekly_schedule'],
                     where: { category: BarberCategoryENUM.ForAppointment }, // Add this line to filter by barber category '1'
                 },
                 {
