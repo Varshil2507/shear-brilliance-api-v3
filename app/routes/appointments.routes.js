@@ -452,12 +452,9 @@ module.exports = (app) => {
     *                                 description: URL to barber's photo.
     *                               availability:
     *                                 type: string
-    *                               default_start_time:
+    *                               weekly_schedule:
     *                                 type: string
-    *                                 format: time
-    *                               default_end_time:
-    *                                 type: string
-    *                                 format: time
+    *                                 example: "{"Monday": {"start": "09:00", "end": "18:00"}}"
     *                           salon:
     *                             type: object
     *                             properties:
@@ -1574,12 +1571,9 @@ app.get(`${apiPrefix}/:appointmentId/last-haircut`, appointmentsController.getLa
  *                               photo:
  *                                 type: string
  *                                 example: "barber_photo.jpg"
- *                               default_start_time:
- *                                 type: string
- *                                 example: "09:00:00"
- *                               default_end_time:
- *                                 type: string
- *                                 example: "18:00:00"
+ *                               weekly_schedule:
+ *                                  type: string
+ *                                  example: "{"Monday": {"start": "09:00", "end": "18:00"}}"
  *                           salon:
  *                             type: object
  *                             properties:
