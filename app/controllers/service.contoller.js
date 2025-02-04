@@ -43,14 +43,6 @@ exports.create = async (req, res) => {
             }
         }    
         
-        if(!validateInput(name, 'nameRegex')) {
-            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
-        }
-
-        if(!validateInput(description, 'nameRegex')) {
-            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
-        }
-
         // Validation checks...
         if (!name) {
             return sendResponse(res, false, 'Name is required', null, 400);
@@ -113,14 +105,6 @@ exports.update = async (req, res) => {
             }
         }    
         
-        if(!validateInput(name, 'nameRegex')) {
-            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
-        }
-
-        if(!validateInput(description, 'nameRegex')) {
-            return sendResponse(res, false, 'Service name must contain only letters', null, 400);
-        }
-
         // Find the service by ID
         const service = await Service.findByPk(id);
         if (!service) {
