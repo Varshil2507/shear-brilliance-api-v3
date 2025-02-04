@@ -236,17 +236,14 @@ exports.getAllUsers = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    // Fetch roles based on the type: 'user' (Admin, Salon Owner, Barber, salon manager) or 'customer' (Customer)
     let filter = {};
     const userRole = req.user.role;
 
-    // Handle role-based logic
     if (userRole === role.SALON_OWNER || userRole === role.SALON_MANAGER) {
-      // Fetch user IDs associated with the salon
       const appointments = await Appointment.findAll({
         where: { SalonId: req.user.salonId },
-        attributes: ['UserId'], // Fetch only user IDs
-        group: ['UserId'], // Group by user_id for uniqueness
+        attributes: ['UserId'],
+        group: ['UserId'],
         limit: parseInt(limit),
         offset: parseInt(offset),
       });
@@ -262,10 +259,8 @@ exports.getAllUsers = async (req, res) => {
         }, 200);
       }
 
-      // Set filter to fetch users by the retrieved user IDs
       filter.id = userIds;
 
-      // Get the total count of unique users
       const totalUsers = await Appointment.count({
         where: { SalonId: req.user.salonId },
         distinct: true,
@@ -274,10 +269,9 @@ exports.getAllUsers = async (req, res) => {
 
       const totalPages = Math.ceil(totalUsers / limit);
 
-      // Fetch users based on IDs
       const users = await User.findAndCountAll({
         where: filter,
-        include: [{ model: Role, as: "role" }], // Include role information
+        include: [{ model: Role, as: "role", attributes: ['id', 'role_name'] }],
       });
 
       return sendResponse(res, true, "Users retrieved successfully", {
@@ -288,11 +282,10 @@ exports.getAllUsers = async (req, res) => {
       }, 200);
     }
 
-    ///
     let roleIds;
     if (type === 'user') {
       const userRoles = await Role.findAll({
-        where: { role_name: [ role.SALON_OWNER, role.BARBER, role.SALON_MANAGER] },
+        where: { role_name: [role.SALON_OWNER, role.BARBER, role.SALON_MANAGER] },
         attributes: ['id']
       });
       roleIds = userRoles.map(role => role.id);
@@ -304,13 +297,10 @@ exports.getAllUsers = async (req, res) => {
       roleIds = [customerRole.id];
     }
 
-    // Apply filters based on role IDs
     filter.RoleId = roleIds;
 
-    // Sequelize condition for searching
     const searchConditions = [];
 
-    // Search by User fields (firstname, lastname, email)
     if (search) {
       searchConditions.push(
         { firstname: { [Sequelize.Op.iLike]: `%${search}%` } },
@@ -318,34 +308,46 @@ exports.getAllUsers = async (req, res) => {
         { email: { [Sequelize.Op.iLike]: `%${search}%` } },
         { '$User.username$': { [Sequelize.Op.iLike]: `%${search}%` } },
       );
-    }
-
-    // Search by Role name
-    if (search) {
       searchConditions.push(
         Sequelize.literal(`"role"."role_name" ILIKE '%${search}%'`)
       );
     }
 
-    // Combine all search filters
     if (searchConditions.length > 0) {
       filter[Sequelize.Op.or] = searchConditions;
     }
 
-    const users = await User.findAndCountAll({
+    const result = await User.findAndCountAll({
       where: filter,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      include: [{ model: Role, as: "role" }] // Include role information
+      include: [{ model: Role, as: "role", attributes: ['id', 'role_name'] }]
     });
 
-    const totalPages = Math.ceil(users.count / limit);
+    // Process each user to add salon information if they're a salon manager
+    const processedUsers = await Promise.all(result.rows.map(async (user) => {
+      const userData = user.toJSON();
+      
+      if (userData.role && userData.role.role_name === role.SALON_MANAGER) {
+        const userSalon = await UserSalon.findOne({ where: { UserId: user.id } });
+        if (userSalon) {
+          const salon = await Salon.findOne({ where: { id: userSalon.SalonId } });
+          if (salon) {
+            userData.salonId = salon.id;
+            userData.salonData = salon;
+          }
+        }
+      }
+      return userData;
+    }));
+
+    const totalPages = Math.ceil(result.count / limit);
 
     sendResponse(res, true, "Users retrieved successfully", {
-      totalItems: users.count,
+      totalItems: result.count,
       totalPages,
-      currentPage: page,
-      users: users.rows,
+      currentPage: parseInt(page),
+      users: processedUsers,
     }, 200);
   } catch (error) {
     console.error("Error fetching users:", error);
