@@ -517,6 +517,18 @@ exports.create = async (req, res) => {
     // Extract services list
     const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
 
+    const formatTo12Hour = (time) => {
+        const [hours, minutes, seconds] = time.split(":").map(Number);
+        const date = new Date(1970, 0, 1, hours, minutes, seconds); // Create a valid Date object
+    
+        return date.toLocaleString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+        });
+    };
+
     
     let emailData;
     if (barber.category === BarberCategoryENUM.ForWalkIn) {
@@ -547,8 +559,8 @@ exports.create = async (req, res) => {
                 month: 'short',
                 day: 'numeric'
             }),
-            appointment_start_time: appointment.appointment_start_time,
-            appointment_end_time: appointment.appointment_end_time,
+            appointment_start_time: formatTo12Hour(appointment.appointment_start_time),  // Convert here
+            appointment_end_time: formatTo12Hour(appointment.appointment_end_time),      // Convert here
             salon_name: salonName,
             location: salonAddress,
             services: serviceNames, // Add services list
@@ -869,6 +881,7 @@ exports.cancel = async (req, res) => {
 
         const salon = await db.Salon.findOne({ where: { id: barber.SalonId } });
         const salonName = salon ? salon.name : 'the selected salon';
+        const salonAddress = salon ? salon.address : 'the selected salon';
 
 
         // For appointment-based barbers (category 1), release the slots
@@ -928,6 +941,9 @@ exports.cancel = async (req, res) => {
         const updatedAppointments = await getAppointmentsByRole(false);
         if(updatedAppointments)
         broadcastBoardUpdates(updatedAppointments);
+
+     
+     
         
 
         // // Send email notification
@@ -938,7 +954,8 @@ exports.cancel = async (req, res) => {
                 barber_name: barber.name,
                 appointment_date: appointment.appointment_date,
                 appointment_start_time: `${appointment.appointment_start_time}`,
-                location: salonName,
+                salon_name: salonName,
+                location: salonAddress,
                 currentYear: new Date().getFullYear(),
                 reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
                 email_subject: "Your Appointment Has Been Canceled"
@@ -2153,6 +2170,19 @@ exports.appointmentByBarber = async (req, res) => {
 
         const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
 
+        const formatTo12Hour = (time) => {
+            const [hours, minutes, seconds] = time.split(":").map(Number);
+            const date = new Date(1970, 0, 1, hours, minutes, seconds); // Create a valid Date object
+        
+            return date.toLocaleString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true
+            });
+        };
+        
+
        // Add this before sending the confirmation email
        
        let emailData;
@@ -2184,8 +2214,8 @@ exports.appointmentByBarber = async (req, res) => {
                    month: 'short',
                    day: 'numeric'
                }),
-               appointment_start_time: appointment.appointment_start_time,
-               appointment_end_time: appointment.appointment_end_time,
+               appointment_start_time: formatTo12Hour(appointment.appointment_start_time),
+               appointment_end_time: formatTo12Hour(appointment.appointment_end_time),
                salon_name: salonName,
                location: salonAddress,
                services: serviceNames, // Add services list
