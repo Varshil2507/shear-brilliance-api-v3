@@ -495,8 +495,6 @@ exports.create = async (req, res) => {
         appointmentWithServices.dataValues.Services = services;
     }
 
-
-
     if(barber.category === BarberCategoryENUM.ForWalkIn) {
         const updatedAppointments = await getAppointmentsByRole(false);
         if(updatedAppointments)
@@ -514,6 +512,9 @@ exports.create = async (req, res) => {
         return sendResponse(res, false, 'User not found', null, 404);
     }
     const email = user.email; // Fetch the user's email
+    // Extract services list
+    const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
+
     
     let emailData;
     if (barber.category === BarberCategoryENUM.ForWalkIn) {
@@ -527,7 +528,9 @@ exports.create = async (req, res) => {
                 month: 'short',
                 day: 'numeric'
             }),
-            location: salonName,
+            salon_name: salonName,
+            location: salon.address,
+            services: serviceNames, // Add services list
             email_subject: "Walk-in Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
         };
@@ -545,6 +548,9 @@ exports.create = async (req, res) => {
             appointment_start_time: appointment.appointment_start_time,
             appointment_end_time: appointment.appointment_end_time,
             location: salonName,
+            salon_name: salonName,
+            location: salon.address,
+            services: serviceNames, // Add services list
             email_subject: "Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
         };
