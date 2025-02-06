@@ -1746,6 +1746,10 @@ const getAppointmentsByRole = async (ischeckRole,user) => {
             }
         }
 
+        // Add condition to only fetch appointments where the barber category is 'walk_in' (category 2)
+        whereCondition['$Barber.category$'] = BarberCategoryENUM.ForWalkIn;
+
+
          // Fetch appointments
         const appointments = await Appointment.findAll({
             where: whereCondition,
