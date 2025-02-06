@@ -506,6 +506,8 @@ exports.create = async (req, res) => {
 
     const salon = await db.Salon.findOne({ where: { id: salon_id } });
      const salonName = salon ? salon.name : 'the selected salon';
+     const salonAddress = salon ? salon.address : 'the selected salon';
+
     // Add this before sending the confirmation email
     const user = await db.USER.findOne({ where: { id: user_id }, attributes: ['email'] });
     if (!user) {
@@ -529,7 +531,7 @@ exports.create = async (req, res) => {
                 day: 'numeric'
             }),
             salon_name: salonName,
-            location: salon.address,
+            location: salonAddress,
             services: serviceNames, // Add services list
             email_subject: "Walk-in Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
@@ -547,14 +549,15 @@ exports.create = async (req, res) => {
             }),
             appointment_start_time: appointment.appointment_start_time,
             appointment_end_time: appointment.appointment_end_time,
-            location: salonName,
             salon_name: salonName,
-            location: salon.address,
+            location: salonAddress,
             services: serviceNames, // Add services list
             email_subject: "Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
         };
     }
+
+    console.log("Email data:", emailData);
   
       // Send confirmation email
       await sendEmail(email,"Your Appointment Book Successfully",INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID, emailData );
@@ -2146,6 +2149,10 @@ exports.appointmentByBarber = async (req, res) => {
 
         const salon = await db.Salon.findOne({ where: { id: salon_id } });
         const salonName = salon ? salon.name : 'the selected salon';
+        const salonAddress = salon ? salon.address : 'the selected salon';
+
+        const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
+
        // Add this before sending the confirmation email
        
        let emailData;
@@ -2160,7 +2167,9 @@ exports.appointmentByBarber = async (req, res) => {
                    month: 'short',
                    day: 'numeric'
                }),
-               location: salonName,
+               salon_name: salonName,
+               location: salonAddress,
+               services: serviceNames, // Add services list
                email_subject: "Walk-in Appointment Confirmation",
                cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
            };
@@ -2177,7 +2186,9 @@ exports.appointmentByBarber = async (req, res) => {
                }),
                appointment_start_time: appointment.appointment_start_time,
                appointment_end_time: appointment.appointment_end_time,
-               location: salonName,
+               salon_name: salonName,
+               location: salonAddress,
+               services: serviceNames, // Add services list
                email_subject: "Appointment Confirmation",
                cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
            };
