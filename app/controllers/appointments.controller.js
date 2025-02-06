@@ -506,6 +506,8 @@ exports.create = async (req, res) => {
 
     const salon = await db.Salon.findOne({ where: { id: salon_id } });
      const salonName = salon ? salon.name : 'the selected salon';
+     const salonAddress = salon ? salon.address : 'the selected salon';
+
     // Add this before sending the confirmation email
     const user = await db.USER.findOne({ where: { id: user_id }, attributes: ['email'] });
     if (!user) {
@@ -514,6 +516,18 @@ exports.create = async (req, res) => {
     const email = user.email; // Fetch the user's email
     // Extract services list
     const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
+
+    const formatTo12Hour = (time) => {
+        const [hours, minutes, seconds] = time.split(":").map(Number);
+        const date = new Date(1970, 0, 1, hours, minutes, seconds); // Create a valid Date object
+    
+        return date.toLocaleString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+        });
+    };
 
     
     let emailData;
@@ -529,7 +543,7 @@ exports.create = async (req, res) => {
                 day: 'numeric'
             }),
             salon_name: salonName,
-            location: salon.address,
+            location: salonAddress,
             services: serviceNames, // Add services list
             email_subject: "Walk-in Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
@@ -545,16 +559,17 @@ exports.create = async (req, res) => {
                 month: 'short',
                 day: 'numeric'
             }),
-            appointment_start_time: appointment.appointment_start_time,
-            appointment_end_time: appointment.appointment_end_time,
-            location: salonName,
+            appointment_start_time: formatTo12Hour(appointment.appointment_start_time),  // Convert here
+            appointment_end_time: formatTo12Hour(appointment.appointment_end_time),      // Convert here
             salon_name: salonName,
-            location: salon.address,
+            location: salonAddress,
             services: serviceNames, // Add services list
             email_subject: "Appointment Confirmation",
             cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
         };
     }
+
+    console.log("Email data:", emailData);
   
       // Send confirmation email
       await sendEmail(email,"Your Appointment Book Successfully",INVITE_BOOKING_APPOINTMENT_TEMPLATE_ID, emailData );
@@ -866,6 +881,7 @@ exports.cancel = async (req, res) => {
 
         const salon = await db.Salon.findOne({ where: { id: barber.SalonId } });
         const salonName = salon ? salon.name : 'the selected salon';
+        const salonAddress = salon ? salon.address : 'the selected salon';
 
 
         // For appointment-based barbers (category 1), release the slots
@@ -925,6 +941,9 @@ exports.cancel = async (req, res) => {
         const updatedAppointments = await getAppointmentsByRole(false);
         if(updatedAppointments)
         broadcastBoardUpdates(updatedAppointments);
+
+     
+     
         
 
         // // Send email notification
@@ -935,7 +954,8 @@ exports.cancel = async (req, res) => {
                 barber_name: barber.name,
                 appointment_date: appointment.appointment_date,
                 appointment_start_time: `${appointment.appointment_start_time}`,
-                location: salonName,
+                salon_name: salonName,
+                location: salonAddress,
                 currentYear: new Date().getFullYear(),
                 reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
                 email_subject: "Your Appointment Has Been Canceled"
@@ -2146,6 +2166,23 @@ exports.appointmentByBarber = async (req, res) => {
 
         const salon = await db.Salon.findOne({ where: { id: salon_id } });
         const salonName = salon ? salon.name : 'the selected salon';
+        const salonAddress = salon ? salon.address : 'the selected salon';
+
+        const serviceNames = appointmentWithServices.Services.map(service => service.name).join(', ');
+
+        const formatTo12Hour = (time) => {
+            const [hours, minutes, seconds] = time.split(":").map(Number);
+            const date = new Date(1970, 0, 1, hours, minutes, seconds); // Create a valid Date object
+        
+            return date.toLocaleString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true
+            });
+        };
+        
+
        // Add this before sending the confirmation email
        
        let emailData;
@@ -2160,7 +2197,9 @@ exports.appointmentByBarber = async (req, res) => {
                    month: 'short',
                    day: 'numeric'
                }),
-               location: salonName,
+               salon_name: salonName,
+               location: salonAddress,
+               services: serviceNames, // Add services list
                email_subject: "Walk-in Appointment Confirmation",
                cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
            };
@@ -2175,9 +2214,11 @@ exports.appointmentByBarber = async (req, res) => {
                    month: 'short',
                    day: 'numeric'
                }),
-               appointment_start_time: appointment.appointment_start_time,
-               appointment_end_time: appointment.appointment_end_time,
-               location: salonName,
+               appointment_start_time: formatTo12Hour(appointment.appointment_start_time),
+               appointment_end_time: formatTo12Hour(appointment.appointment_end_time),
+               salon_name: salonName,
+               location: salonAddress,
+               services: serviceNames, // Add services list
                email_subject: "Appointment Confirmation",
                cancel_url: `${process.env.FRONTEND_URL}/appointment_confirmation/${appointment.id}`
            };
