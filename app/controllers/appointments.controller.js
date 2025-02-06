@@ -922,15 +922,17 @@ exports.cancel = async (req, res) => {
         
 
         // // Send email notification
+        let emailData;
         if (user) {
-            const emailData = {
+            emailData = {
                 customer_name: appointment.name,
                 barber_name: barber.name,
                 appointment_date: appointment.appointment_date,
                 appointment_start_time: `${appointment.appointment_start_time}`,
                 location: salonName,
                 currentYear: new Date().getFullYear(),
-                reschedule_url: `${process.env.FRONTEND_URL}/select_salon`
+                reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
+                email_subject: "Your Appointment Has Been Canceled"
             };
             console.log("Email data:", emailData);
 
@@ -1064,7 +1066,6 @@ exports.findAll = async (req, res) => {
                 }
             }
         }
-
 
         // Search functionality
         const searchConditions = [];
