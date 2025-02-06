@@ -187,8 +187,9 @@ exports.transferAppointment = async (req, res) => {
     const user = await db.USER.findByPk(appointment.UserId );
     const barber = await db.Barber.findByPk(appointment.BarberId);
 
-     const salon = await db.Salon.findOne({ where: { id: barber.SalonId } });
+    const salon = await db.Salon.findOne({ where: { id: barber.SalonId } });
     const salonName = salon ? salon.name : 'the selected salon';
+    const salonAddress = salon ? salon.address : 'the selected salon';
 
     // Store the old barber ID for slot updates
     const oldBarberId = appointment.BarberId;
@@ -321,21 +322,35 @@ exports.transferAppointment = async (req, res) => {
       }]
     });
 
+    const formatTo12Hour = (time) => {
+        const [hours, minutes, seconds] = time.split(":").map(Number);
+        const date = new Date(1970, 0, 1, hours, minutes, seconds); // Create a valid Date object
+    
+        return date.toLocaleString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+        });
+    };
+
  
          // Send email notification to the user
-         const emailData = {
-           customer_name: appointment.name,
-           old_barber_name: barber.name,
-           new_barber_name: NewBarberName,
-           appointment_date: appointment.appointment_date,
-           appointment_start_time: appointment.appointment_start_time,
-           location: salonName,
-           currentYear: new Date().getFullYear(),
-           reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
-           email_subject: "Appointment Transferred Successfully",
-         };
+    const emailData = {
+      customer_name: appointment.name,
+      old_barber_name: barber.name,
+      new_barber_name: NewBarberName,
+      appointment_date: appointment.appointment_date,
+      appointment_start_time: formatTo12Hour(appointment.appointment_start_time),
+      appointment_end_time: formatTo12Hour(appointment.appointment_end_time),
+      salon_name: salonName,
+      location: salonAddress,
+      currentYear: new Date().getFullYear(),
+      reschedule_url: `${process.env.FRONTEND_URL}/select_salon`,
+      email_subject: "Appointment Transferred Successfully",
+    };
      
-         await sendEmail(user.email,"Your Appointment has been Transferred",INVITE_TRANSFER_APPOINTMENT_TEMPLATE_ID, emailData);
+    await sendEmail(user.email,"Your Appointment has been Transferred", INVITE_TRANSFER_APPOINTMENT_TEMPLATE_ID, emailData);
 
     return sendResponse(
       res,
