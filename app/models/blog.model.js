@@ -13,6 +13,10 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.TEXT,
         allowNull: false
       },
+      htmlContent: {
+        type: Sequelize.TEXT,
+        allowNull: true
+      },      
       image: {
         type: Sequelize.STRING,
         allowNull: true // You can choose whether image is optional or required
