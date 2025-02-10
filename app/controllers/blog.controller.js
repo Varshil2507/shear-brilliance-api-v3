@@ -16,7 +16,7 @@ const s3 = new AWS.S3({
 exports.create = async (req, res) => {
   try {
     let blogImage = null;
-    let { title, description } = req.body;
+    let { title, description, htmlContent } = req.body;
 
     // Validate input
     const requiredFields = [
@@ -55,6 +55,7 @@ exports.create = async (req, res) => {
       title,
       description,
       image: blogImage,
+      htmlContent
     });
 
     sendResponse(res, true, 'Blog created successfully', blog, 201);
@@ -164,6 +165,11 @@ exports.update = async (req, res) => {
     } else {
       // Retain the existing image if no new file is uploaded
       updates.image = blog.image;
+    }
+
+     // Ensure htmlContent is retained if not provided
+     if (!updates.htmlContent) {
+      updates.htmlContent = blog.htmlContent;
     }
 
     // Update the blog post in the database

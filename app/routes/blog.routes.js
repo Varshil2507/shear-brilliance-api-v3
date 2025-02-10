@@ -56,6 +56,9 @@ module.exports = app => {
      *               description:
      *                 type: string
      *                 description: Description of the blog post
+     *               htmlContent:
+     *                 type: string
+     *                 description: HTML content of the blog post
      *               image:
      *                 type: string
      *                 format: binary
@@ -210,6 +213,9 @@ module.exports = app => {
      *               description:
      *                 type: string
      *                 description: Updated description of the blog post
+     *               htmlContent:
+     *                 type: string
+     *                 description: HTML content of the blog post
      *               image:
      *                 type: string
      *                 format: binary
